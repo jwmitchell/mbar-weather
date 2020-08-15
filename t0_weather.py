@@ -1,3 +1,5 @@
+# Test using KLAX data from synoptic
+#
 import configparser
 import urllib.request as req
 import requests
