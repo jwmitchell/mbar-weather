@@ -1,0 +1,9 @@
+import configparser
+
+config = configparser.ConfigParser()
+config.read('weather.ini')
+
+api = config['API_ROOT']
+token = config['API_TOKEN']
+
+print "api, token = " + api + " " + token
