@@ -30,27 +30,51 @@ def create_weather_db(db_path_name):
     except Error as e:
         print(e)
 
-    c = connection.cursor()
+    cc = connection.cursor()
     # Get example dataset
     radius_data = get_example_radius_dataset()
     print("Creating tables for " + db_path_name)
 
     # Create table for UNITS
-    c.execute('''SELECT count(name) FROM sqlite_master WHERE type='table' AND name='units' ''')
-    if c.fetchone()[0] !=1:        #Skip if table exists
-        c.execute('''CREATE TABLE units (
-        variable text NOT NULL,
-        units text NOT NULL
-        );''')
-        sql = 'INSERT INTO units(variable,units) VALUES(?,?)'
-        values =[]
-        for v,u in radius_data['UNITS'].items():
-            values.append((v,u))
-        print("loading values")
-        c.executemany(sql,values)
-
+    cc.execute('''SELECT count(name) FROM sqlite_master WHERE type='table' AND name='units' ''')
+    if cc.fetchone()[0] ==1:        #Error if table exists
+        raise RuntimeError("SQL table units already exists")
+    cc.execute('''CREATE TABLE units (
+    variable text NOT NULL,
+    units text NOT NULL
+    );''')
+    sql = 'INSERT INTO units(variable,units) VALUES(?,?)'
+    values =[]
+    for v,u in radius_data['UNITS'].items():
+        values.append((v,u))
+        cc.executemany(sql,values)
         
+    # Create station table
+    cc.execute('''SELECT count(name) FROM sqlite_master WHERE type='table' AND name='station' ''')
+    if cc.fetchone()[0] ==1:        #Error if table exists
+        raise RuntimeError("SQL table station already exists")
+    for v in radius_data['STATION'][0].keys():
+        sqltype = python_to_sql(radius_data['STATION'][0][v])
+        print("Station var: " + v + "   SQL Type: " + sqltype)
 
+    print("finished")
+    connection.commit()
+
+def python_to_sql(obj):
+    sqltype = 'NULL'
+    if (isinstance(obj,str)):
+        sqltype = 'TEXT'
+    elif (isinstance(obj,int)):
+        sqltype = 'INTEGER'
+    elif (isinstance(obj,float)):
+        sqltype = 'REAL'
+    elif (isinstance(obj,dict)):
+        sqltype = 'REFERENCE'   # Not a real sql type, foreign key
+    else:
+        raise ValueError("Type " + type(obj) + " is not a recognized SQL type")
+    return sqltype
+                         
+    
 def get_example_radius_dataset():
     radius = (38.09,-122.65,3)
     st_radius = ",".join(map(str,radius))
