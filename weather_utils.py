@@ -45,19 +45,46 @@ def create_weather_db(db_path_name):
     );''')
     sql = 'INSERT INTO units(variable,units) VALUES(?,?)'
     values =[]
-    for v,u in radius_data['UNITS'].items():
-        values.append((v,u))
-        cc.executemany(sql,values)
-        
+    for vv,uu in radius_data['UNITS'].items():
+        values.append((vv,uu))
+    cc.executemany(sql,values)
+
     # Create station table
     cc.execute('''SELECT count(name) FROM sqlite_master WHERE type='table' AND name='station' ''')
     if cc.fetchone()[0] ==1:        #Error if table exists
         raise RuntimeError("SQL table station already exists")
+    sql = 'CREATE TABLE station (stid TEXT PRIMARY KEY, '
+    iv = 0
+    vlen = len(radius_data['STATION'][0].keys())
     for v in radius_data['STATION'][0].keys():
+        iv +=1
         sqltype = python_to_sql(radius_data['STATION'][0][v])
         print("Station var: " + v + "   SQL Type: " + sqltype)
+        comma = ', '
+        if sqltype != 'REFERENCE' and v not in ['STID','OBSERVATIONS']:
+            sql = sql + v.lower() + '  ' + sqltype
+        else:
+            if v in ['OBSERVATIONS','STID']:    #STID is PRIMARY KEY. OBSERVATIONS is foreign table with STID as a foreign key
+                comma = ''
+            elif v == 'SENSOR_VARIABLES':
+                sql = sql + v.lower() + ' BLOB  NOT NULL'
+            elif v == 'PERIOD_OF_RECORD':
+                por_start =  radius_data['STATION'][0]['PERIOD_OF_RECORD']['start']
+                por_end =  radius_data['STATION'][0]['PERIOD_OF_RECORD']['end']
+                sql = sql + 'period_of_record_start TEXT  NOT NULL, '
+                sql = sql + 'period_of_record_stop TEXT  NOT NULL'
+            else:
+                raise ValueError("Unknown station reference variable " + v)
 
-    print("finished")
+        if iv != vlen:
+            sql = sql + comma
+        
+    sql = sql + ');'
+    print(sql)
+    try:
+        cc.execute(sql)
+    except ERROR as e:
+        print(e)
     connection.commit()
 
 def python_to_sql(obj):
