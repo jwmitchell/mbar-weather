@@ -85,6 +85,30 @@ def create_weather_db(db_path_name):
         cc.execute(sql)
     except ERROR as e:
         print(e)
+
+    # Create observations table
+
+    cc.execute('''SELECT count(name) FROM sqlite_master WHERE type='table' AND name='observations' ''')
+    if cc.fetchone()[0] ==1:        #Error if table exists
+        raise RuntimeError("SQL table observations already exists")
+    sql = 'CREATE TABLE observations (date_time TEXT PRIMARY KEY, '
+    iv = 0
+    vlen = len(radius_data['STATION'][0]['OBSERVATIONS'].keys())
+    for v in radius_data['STATION'][0]['OBSERVATIONS'].keys():
+        iv +=1
+        sqltype = python_to_sql(radius_data['STATION'][0]['OBSERVATIONS'][v][0])
+        print("Observation var: " + v + "   SQL Type: " + sqltype)
+        comma = ', '
+        if sqltype != 'REFERENCE' and v != 'date_time':
+            sql = sql + v.lower() + '  ' + sqltype + comma
+        
+    sql = sql + ' stid TEXT NOT NULL, FOREIGN KEY (stid) REFERENCES station (stid) );'
+    print(sql)
+    try:
+        cc.execute(sql)
+    except ERROR as e:
+        print(e)
+
     connection.commit()
 
 def python_to_sql(obj):
@@ -98,7 +122,8 @@ def python_to_sql(obj):
     elif (isinstance(obj,dict)):
         sqltype = 'REFERENCE'   # Not a real sql type, foreign key
     else:
-        raise ValueError("Type " + type(obj) + " is not a recognized SQL type")
+        errstr = "Type " + type(obj) + " is not a recognized SQL type"
+        raise ValueError(errstr)
     return sqltype
                          
     
@@ -106,7 +131,7 @@ def get_example_radius_dataset():
     radius = (38.09,-122.65,3)
     st_radius = ",".join(map(str,radius))
 
-    api_arguments = {"token":token,"start":"201910092300","end":"201910101700","radius":st_radius,"units":units}
+    api_arguments = {"token":token,"start":"201910092300","end":"201910100400","radius":st_radius,"units":units}
     api_request_url = get_base_api_request_url("timeseries")
     req = requests.get(api_request_url, params=api_arguments)
     data = req.json()
