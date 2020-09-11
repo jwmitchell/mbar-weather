@@ -25,7 +25,7 @@ class DBCreateTestCase(unittest.TestCase):
 
     def tearDown(self):
         try:
-            os.remove('test_weather_utils.db')
+            os.remove('test_weather_data.db')
         except:
             pass
             
