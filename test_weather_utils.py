@@ -28,6 +28,17 @@ class DBCreateTestCase(unittest.TestCase):
             os.remove('test_weather_data.db')
         except:
             pass
-            
+
+
+class BaseAPIRequestTestCase(unittest.TestCase):
+
+    def test_timeseries(self):
+        url = weather_utils.get_base_api_request_url('timeseries')
+        self.assertEqual(url,'https://api.synopticdata.com/v2/stations/timeseries')
+
+    def test_invalid_type(self):
+        with self.assertRaises(ValueError):
+            url = weather_utils.get_base_api_request_url('bogus')
+    
 if __name__ == '__main__':
     unittest.main()
