@@ -139,8 +139,8 @@ def get_example_radius_dataset():
 
 # radius_data = get_example_radius_dataset()
 
-create_weather_db("test_example.db")
-print("finished")
+# create_weather_db("test_example.db")
+# print("finished")
 
 
 
