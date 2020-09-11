@@ -122,7 +122,7 @@ def python_to_sql(obj):
     elif (isinstance(obj,dict)):
         sqltype = 'REFERENCE'   # Not a real sql type, foreign key
     else:
-        errstr = "Type " + type(obj) + " is not a recognized SQL type"
+        errstr = "Type " + str(type(obj)) + " is not a recognized SQL type"
         raise ValueError(errstr)
     return sqltype
                          

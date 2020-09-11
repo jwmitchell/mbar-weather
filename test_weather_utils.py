@@ -39,6 +39,34 @@ class BaseAPIRequestTestCase(unittest.TestCase):
     def test_invalid_type(self):
         with self.assertRaises(ValueError):
             url = weather_utils.get_base_api_request_url('bogus')
-    
+
+class Python2SQLTestCase(unittest.TestCase):
+
+    def test_string_type(self):
+        python_object = "string"
+        sqltype = weather_utils.python_to_sql(python_object)
+        self.assertEqual(sqltype,'TEXT')
+
+    def test_int_type(self):
+        python_object = 4
+        sqltype = weather_utils.python_to_sql(python_object)
+        self.assertEqual(sqltype,'INTEGER')
+
+    def test_real_type(self):
+        python_object = 3.14
+        sqltype = weather_utils.python_to_sql(python_object)
+        self.assertEqual(sqltype,'REAL')
+
+    def test_dict_type(self):
+        python_object = {'a':1, 'b':'fred'}
+        sqltype = weather_utils.python_to_sql(python_object)
+        self.assertEqual(sqltype,'REFERENCE')
+
+    def test_other_type(self):
+        python_object = [1, 2, 3]
+        with self.assertRaises(ValueError):
+            sqltype = weather_utils.python_to_sql(python_object)
+            print ("sqltype " + sqltype)
+            
 if __name__ == '__main__':
     unittest.main()
