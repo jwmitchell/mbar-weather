@@ -6,6 +6,7 @@ import requests
 import os.path
 import json
 import sqlite3
+import pickle
 
 api = weather_config.config['Default']['API_ROOT']
 token = weather_config.config['Default']['API_TOKEN']
@@ -53,7 +54,7 @@ def create_weather_db(db_path_name):
     cc.execute('''SELECT count(name) FROM sqlite_master WHERE type='table' AND name='station' ''')
     if cc.fetchone()[0] ==1:        #Error if table exists
         raise RuntimeError("SQL table station already exists")
-    sql = 'CREATE TABLE station (stid TEXT PRIMARY KEY, '
+    sql = 'CREATE TABLE station (sid INTEGER PRIMARY KEY, '
     iv = 0
     vlen = len(radius_data['STATION'][0].keys())
     for v in radius_data['STATION'][0].keys():
@@ -61,10 +62,10 @@ def create_weather_db(db_path_name):
         sqltype = python_to_sql(radius_data['STATION'][0][v])
         print("Station var: " + v + "   SQL Type: " + sqltype)
         comma = ', '
-        if sqltype != 'REFERENCE' and v not in ['STID','OBSERVATIONS']:
+        if sqltype != 'REFERENCE' and v not in ['OBSERVATIONS']:
             sql = sql + v.lower() + '  ' + sqltype
         else:
-            if v in ['OBSERVATIONS','STID']:    #STID is PRIMARY KEY. OBSERVATIONS is foreign table with STID as a foreign key
+            if v == 'OBSERVATIONS':    #OBSERVATIONS is foreign table with STID as a foreign key
                 comma = ''
             elif v == 'SENSOR_VARIABLES':
                 sql = sql + v.lower() + ' BLOB  NOT NULL'
@@ -79,11 +80,11 @@ def create_weather_db(db_path_name):
         if iv != vlen:
             sql = sql + comma
         
-    sql = sql + ');'
+    sql = sql + ', UNIQUE(stid));'
     print(sql)
     try:
         cc.execute(sql)
-    except ERROR as e:
+    except Error as e:
         print(e)
 
     # Create observations table
@@ -106,7 +107,7 @@ def create_weather_db(db_path_name):
     print(sql)
     try:
         cc.execute(sql)
-    except ERROR as e:
+    except Error as e:
         print(e)
 
     connection.commit()
@@ -137,15 +138,52 @@ def get_example_radius_dataset():
     data = req.json()
     return(data)
 
-# radius_data = get_example_radius_dataset()
+def cache_data(data, db_name):
+    # This is a temporary method to be used to develop the store_event method.
+    # radius_data['STATION'][0]['OBSERVATIONS'][v]
+    try:
+        connection = sqlite3.connect("test_example.db")
+    except Error as e:
+        print(e)
+    cc = connection.cursor()
 
-# create_weather_db("test_example.db")
-# print("finished")
+    for st in data['STATION']:
+        sql = 'INSERT INTO station('
+        dbtuple = ()
+        qm = ''
+        for sd in st.keys():
+            if sd not in ['OBSERVATIONS','PERIOD_OF_RECORD','SENSOR_VARIABLES']:
+                var = sd.lower()
+                val = (st[sd],)
+                sql = sql + var + ','
+                dbtuple = dbtuple + val
+                qm = qm + '?,'
+            elif sd == 'PERIOD_OF_RECORD':
+                por_start =  st[sd]['start']
+                por_end = st[sd]['end']
+                sql = sql + 'period_of_record_start, period_of_record_stop,'
+                dbtuple = dbtuple + (por_start,por_end)
+                qm = qm + '?,?,'
+            elif sd == 'SENSOR_VARIABLES':
+                var = sd.lower()                
+                sql = sql + var + ','
+                qm = qm + '?,'
+                pdat = pickle.dumps(st[sd],pickle.HIGHEST_PROTOCOL)
+                val = (pdat,)
+                dbtuple = dbtuple + val
+                
 
+        sql = sql.rstrip(',')
+        qm = qm.strip(',')
+        sql = sql + ') VALUES('+ qm + ')'
 
+        cc.execute(sql,dbtuple)
+        connection.commit()
+        
+if __name__ == '__main__':
 
-def date_to_int(date_string):
-    print ("date_string")
-    
+    create_weather_db("test_example.db")
+    radius_data = get_example_radius_dataset()    
+    cache_data(radius_data, "test_example.db")
 
 
