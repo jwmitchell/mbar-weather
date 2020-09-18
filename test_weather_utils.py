@@ -4,6 +4,7 @@
 import weather_utils
 import unittest
 import os
+import sqlite3
 
 # weather_utils.create_weather_db('test_weather_data.db')
 
@@ -86,6 +87,18 @@ class StationAddTestCase(unittest.TestCase):
     def test_add_stations(self):
         db_name = "test/test_weather_data.db"
         weather_utils.add_station_data(self.test_data,db_name)
+        try:
+            connection = sqlite3.connect(db_name)
+        except Error as e:
+            print(e)
+        cc = connection.cursor()
+        cc.execute('SELECT stid FROM station')
+        stations = cc.fetchall()
+        st3, = stations[3]
+        if st3 != 'PG133':
+            raise RuntimeError("Data error in db: " + st3)
+        connection.close()
+
 
     def tearDown(self):
         try:
