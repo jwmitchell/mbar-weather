@@ -138,11 +138,13 @@ def get_example_radius_dataset():
     data = req.json()
     return(data)
 
-def cache_data(data, db_name):
+def add_station_data(data, db_name):
     # This is a temporary method to be used to develop the store_event method.
     # radius_data['STATION'][0]['OBSERVATIONS'][v]
+    if not os.path.isfile(db_name):
+        raise FileExistsError(db_name + " does not exist")
     try:
-        connection = sqlite3.connect("test_example.db")
+        connection = sqlite3.connect(db_name)
     except Error as e:
         print(e)
     cc = connection.cursor()
@@ -184,6 +186,6 @@ if __name__ == '__main__':
 
     create_weather_db("test_example.db")
     radius_data = get_example_radius_dataset()    
-    cache_data(radius_data, "test_example.db")
+    add_station_data(radius_data, "test_example.db")
 
 

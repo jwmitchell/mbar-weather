@@ -67,6 +67,33 @@ class Python2SQLTestCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             sqltype = weather_utils.python_to_sql(python_object)
             print ("sqltype " + sqltype)
+
+class StationAddTestCase(unittest.TestCase):
+
+    def setUp(self):
+        try:
+            weather_utils.create_weather_db('test/test_weather_data.db')
+            self.test_data = eval(open('test/test_novato_1.dat', 'r').read())
+        except:
+            pass
             
+    def test_fail_open_db(self):
+        db_name = "totally_bogus.db"
+        data = {}
+        with self.assertRaises(FileExistsError):
+            weather_utils.add_station_data(data,db_name)
+
+    def test_add_stations(self):
+        db_name = "test/test_weather_data.db"
+        weather_utils.add_station_data(self.test_data,db_name)
+
+    def tearDown(self):
+        try:
+            os.remove('test/test_weather_data.db')
+        except:
+            pass
+
+    
+    
 if __name__ == '__main__':
     unittest.main()
