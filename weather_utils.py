@@ -139,8 +139,7 @@ def get_example_radius_dataset():
     return(data)
 
 def add_station_data(data, db_name):
-    # This is a temporary method to be used to develop the store_event method.
-    # radius_data['STATION'][0]['OBSERVATIONS'][v]
+
     if not os.path.isfile(db_name):
         raise FileExistsError(db_name + " does not exist")
     try:
@@ -181,11 +180,52 @@ def add_station_data(data, db_name):
 
         cc.execute(sql,dbtuple)
         connection.commit()
-        
+
+def get_station_by_stid(stid,db_name):
+# Get the station by id from the database, and provide it as a standard format
+# dictionary.
+    
+    if not os.path.isfile(db_name):
+        raise FileExistsError(db_name + " does not exist")
+    try:
+        connection = sqlite3.connect(db_name)
+    except Error as e:
+        print(e)
+    cc = connection.cursor()
+    sql = 'SELECT * FROM station WHERE stid = \'' + stid + '\';'
+
+    cc.execute(sql)
+    sttuple = cc.fetchone()
+
+    if sttuple != None:        # Station already exists in database
+    
+        # sqlite returns data in a tuple format. This needs to be converted into the
+        # standard dictionary format used by synoptic. Keys are also in CAPS.
+    
+        stdict = {}
+        attr = 0
+        for stk in cc.description:
+            stkey = stk[0].upper()
+            stdict[stkey] = sttuple[attr]
+            attr += 1
+            
+        # The SENSOR_VARIABLES data were packed as a binary and need to be unpickled
+            
+        stdict['SENSOR_VARIABLES'] = pickle.loads(stdict['SENSOR_VARIABLES'])
+            
+        print(stdict)
+
+    return stdict
+
+    
+    ## Next steps: unpickle sensor_variables, assemble dict using descripition,
+    ## check for null tuple, if null find API call for station, add new station.
+    
 if __name__ == '__main__':
 
     create_weather_db("test_example.db")
     radius_data = get_example_radius_dataset()    
     add_station_data(radius_data, "test_example.db")
+    get_station_by_stid('PG133',"test_example.db")
 
 
