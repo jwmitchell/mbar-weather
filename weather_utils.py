@@ -138,6 +138,7 @@ def get_example_radius_dataset():
     data = req.json()
     return(data)
 
+## To do - Operations on the database should be methods of a WeatherDB class.
 def add_station_data(data, db_name):
 
     if not os.path.isfile(db_name):
@@ -214,6 +215,10 @@ def get_station_by_stid(stid,db_name):
         stdict['SENSOR_VARIABLES'] = pickle.loads(stdict['SENSOR_VARIABLES'])
             
         print(stdict)
+
+    else:
+        estring = str(stid) + ' is not a valid station'
+        raise ValueError(estring)
 
     return stdict
 

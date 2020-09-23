@@ -106,7 +106,46 @@ class StationAddTestCase(unittest.TestCase):
         except:
             pass
 
-    
+class GetStationBySTIDTestCase(unittest.TestCase):
+
+    def setUp(self):
+        try:
+            weather_utils.create_weather_db('test/test_weather_data.db')
+            self.test_data = eval(open('test/test_pge133_1.dat', 'r').read())
+            radius_data = weather_utils.get_example_radius_dataset()    
+            weather_utils.add_station_data(radius_data,'test/test_weather_data.db')           
+        except:
+            raise RuntimeError("Test Class Initialization Error")
+            
+    def test_fail_open_db(self):
+        db_name = 'totally_bogus.db'
+        stid = 'PGE133'
+        with self.assertRaises(FileExistsError):
+            weather_utils.get_station_by_stid(stid,db_name)
+
+    def test_invalid_station(self):
+        db_name = 'test/test_weather_data.db'
+        stid = 'BOGUS'
+        with self.assertRaises(ValueError):
+            weather_utils.get_station_by_stid(stid,db_name)
+
+    def test_existing_station(self):
+        db_name = 'test/test_weather_data.db'
+        stid = 'PG133'
+        tdat = weather_utils.get_station_by_stid(stid,db_name)
+        ismatch = True
+        for wd in tdat:
+            if wd != 'PERIOD_OF_RECORD_STOP':
+                if tdat[wd] != self.test_data[wd]:
+                    ismatch = False
+        self.assertTrue(ismatch)
+        
+    def tearDown(self):
+        try:
+            os.remove('test/test_weather_data.db')
+        except:
+            pass
+        
     
 if __name__ == '__main__':
     unittest.main()
