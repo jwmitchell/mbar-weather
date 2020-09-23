@@ -225,12 +225,44 @@ def get_station_by_stid(stid,db_name):
     
     ## Next steps: unpickle sensor_variables, assemble dict using descripition,
     ## check for null tuple, if null find API call for station, add new station.
+
+class WeatherDB(object):
+
+    def __init__(self,db_name):
+        if not os.path.isfile(db_name):
+            raise FileExistsError(db_name + " does not exist, use WeatherDB.create(db_name)")
+        print("Opening " + db_name)
+
+        try:
+            connection = sqlite3.connect(db_name)
+        except Error as e:
+            print(e)
+        self.connection = connection
+        self.cursor = connection.cursor()
+        self.db_name = db_name
+        
+    def create(db_name):
+        if os.path.isfile(db_name):
+            raise ValueError(db_name + " already exists. Use WeatherDB(db_name).")
+        print("Creating " + db_name)
+        create_weather_db(db_name)
+        mydb = WeatherDB(db_name)
+        return mydb
+    create = staticmethod(create)
+
+    def close(self):
+        self.connection.close()
     
 if __name__ == '__main__':
 
-    create_weather_db("test_example.db")
-    radius_data = get_example_radius_dataset()    
-    add_station_data(radius_data, "test_example.db")
-    get_station_by_stid('PG133',"test_example.db")
+#    create_weather_db("test_example.db")
+#    radius_data = get_example_radius_dataset()    
+#    add_station_data(radius_data, "test_example.db")
+#    get_station_by_stid('PG133',"test_example.db")
+
+    mydb0 = WeatherDB.create("test_example.db")
+    mydb1 = WeatherDB("test_example.db")
+    mydb0.close()
+    mydb1.close()
 
 
