@@ -223,8 +223,7 @@ def get_station_by_stid(stid,db_name):
     return stdict
 
     
-    ## Next steps: unpickle sensor_variables, assemble dict using descripition,
-    ## check for null tuple, if null find API call for station, add new station.
+    ## Next steps: check for null tuple, if null find API call for station, add new station.
 
 class WeatherDB(object):
 
@@ -251,7 +250,10 @@ class WeatherDB(object):
     create = staticmethod(create)
 
     def close(self):
+        self.db_name = None
+        self.cursor = None
         self.connection.close()
+
     
 if __name__ == '__main__':
 

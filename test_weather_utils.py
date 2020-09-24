@@ -145,7 +145,53 @@ class GetStationBySTIDTestCase(unittest.TestCase):
             os.remove('test/test_weather_data.db')
         except:
             pass
+
+class WeatherDBTest(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(WeatherDBTest):
+        db_name = 'test/test_weather_data.db'
+        WeatherDBTest._connection = weather_utils.WeatherDB.create(db_name)
+    
+    def test_create_db(self):
+        db_name = 'test/test_weather_data_2.db'
+        mydb = weather_utils.WeatherDB.create(db_name)
+        sql = "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='station'";
+        mydb.cursor.execute(sql)
+        self.assertTrue(mydb.cursor.fetchone())
+        mydb.close()
+        os.remove('test/test_weather_data_2.db')
         
+    def test_db_unavailable(self):
+        mydb = None
+        with self.assertRaises(FileExistsError):
+            mydb = weather_utils.WeatherDB('bogus_db')
+
+    def test_db_exists(self):
+        db_name = 'test/test_weather_data.db'
+        with self.assertRaises(ValueError):
+            mydb = weather_utils.WeatherDB.create(db_name)
+    
+    def test_open(self):
+        db_name = 'test/test_weather_data.db'
+        mydb = weather_utils.WeatherDB(db_name)
+        sql = "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='station'";
+        mydb.cursor.execute(sql)
+        self.assertTrue(mydb.cursor.fetchone())
+        mydb.close()
+        
+    def test_close(self):
+        db_name = 'test/test_weather_data.db'
+        mydb = weather_utils.WeatherDB(db_name)
+        mydb.close()
+        self.assertTrue(mydb.cursor == None)
+        
+    @classmethod
+    def tearDownClass(WeatherDBTest):
+        try:
+            os.remove('test/test_weather_data.db')
+        except:
+            pass
     
 if __name__ == '__main__':
     unittest.main()
