@@ -6,31 +6,6 @@ import unittest
 import os
 import sqlite3
 
-# weather_utils.create_weather_db('test_weather_data.db')
-
-class DBCreateTestCase(unittest.TestCase):
-
-    def setUp(self):
-        try:
-            os.remove('test_weather_data.db')
-        except:
-            pass
-            
-    def test_create_db(self):
-        weather_utils.create_weather_db('test_weather_data.db')
-
-    def test_db_already_exists(self):
-        weather_utils.create_weather_db('test_weather_data.db')
-        with self.assertRaises(RuntimeError):
-            weather_utils.create_weather_db('test_weather_data.db')
-
-    def tearDown(self):
-        try:
-            os.remove('test_weather_data.db')
-        except:
-            pass
-
-
 class BaseAPIRequestTestCase(unittest.TestCase):
 
     def test_timeseries(self):
@@ -73,7 +48,7 @@ class StationAddTestCase(unittest.TestCase):
 
     def setUp(self):
         try:
-            weather_utils.create_weather_db('test/test_weather_data.db')
+            mydb = weather_utils.WeatherDB.create('test/test_weather_data.db')
             self.test_data = eval(open('test/test_novato_1.dat', 'r').read())
         except:
             pass
@@ -110,7 +85,7 @@ class GetStationBySTIDTestCase(unittest.TestCase):
 
     def setUp(self):
         try:
-            weather_utils.create_weather_db('test/test_weather_data.db')
+            mydb = weather_utils.WeatherDB.create('test/test_weather_data.db')
             self.test_data = eval(open('test/test_pge133_1.dat', 'r').read())
             radius_data = weather_utils.get_example_radius_dataset()    
             weather_utils.add_station_data(radius_data,'test/test_weather_data.db')           
@@ -167,7 +142,7 @@ class WeatherDBTest(unittest.TestCase):
         with self.assertRaises(FileExistsError):
             mydb = weather_utils.WeatherDB('bogus_db')
 
-    def test_db_exists(self):
+    def test_db_already_exists(self):
         db_name = 'test/test_weather_data.db'
         with self.assertRaises(ValueError):
             mydb = weather_utils.WeatherDB.create(db_name)
