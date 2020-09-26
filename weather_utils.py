@@ -49,50 +49,6 @@ def get_example_radius_dataset():
     data = req.json()
     return(data)
 
-## To do - Operations on the database should be methods of a WeatherDB class.
-def add_station_data(data, db_name):
-
-    if not os.path.isfile(db_name):
-        raise FileExistsError(db_name + " does not exist")
-    try:
-        connection = sqlite3.connect(db_name)
-    except Error as e:
-        print(e)
-    cc = connection.cursor()
-
-    for st in data['STATION']:
-        sql = 'INSERT INTO station('
-        dbtuple = ()
-        qm = ''
-        for sd in st.keys():
-            if sd not in ['OBSERVATIONS','PERIOD_OF_RECORD','SENSOR_VARIABLES']:
-                var = sd.lower()
-                val = (st[sd],)
-                sql = sql + var + ','
-                dbtuple = dbtuple + val
-                qm = qm + '?,'
-            elif sd == 'PERIOD_OF_RECORD':
-                por_start =  st[sd]['start']
-                por_end = st[sd]['end']
-                sql = sql + 'period_of_record_start, period_of_record_stop,'
-                dbtuple = dbtuple + (por_start,por_end)
-                qm = qm + '?,?,'
-            elif sd == 'SENSOR_VARIABLES':
-                var = sd.lower()                
-                sql = sql + var + ','
-                qm = qm + '?,'
-                pdat = pickle.dumps(st[sd],pickle.HIGHEST_PROTOCOL)
-                val = (pdat,)
-                dbtuple = dbtuple + val
-                
-
-        sql = sql.rstrip(',')
-        qm = qm.strip(',')
-        sql = sql + ') VALUES('+ qm + ')'
-
-        cc.execute(sql,dbtuple)
-        connection.commit()
-
 def get_station_by_stid(stid,db_name):
 # Get the station by id from the database, and provide it as a standard format
 # dictionary.
@@ -168,11 +124,6 @@ class WeatherDB(object):
         db_file = open(db_name,'w')
         db_file.close()
         mydb = WeatherDB(db_name)
-        try:
-            mydb.connection = sqlite3.connect(db_name)
-        except Error as e:
-            print(e)
-        mydb.cursor = mydb.connection.cursor()
         
         # Get example dataset - Currently this is dynamically pulled from Synoptic, probably
         # should be static data
@@ -255,6 +206,43 @@ class WeatherDB(object):
 
     create = staticmethod(create)
 
+    def add_station(self,data):
+
+        if data['STATION'] == None:
+            raise ValueError('No station data has been provided')
+
+        for st in data['STATION']:
+            sql = 'INSERT INTO station('
+            dbtuple = ()
+            qm = ''
+            for sd in st.keys():
+                if sd not in ['OBSERVATIONS','PERIOD_OF_RECORD','SENSOR_VARIABLES']:
+                    var = sd.lower()
+                    val = (st[sd],)
+                    sql = sql + var + ','
+                    dbtuple = dbtuple + val
+                    qm = qm + '?,'
+                elif sd == 'PERIOD_OF_RECORD':
+                    por_start =  st[sd]['start']
+                    por_end = st[sd]['end']
+                    sql = sql + 'period_of_record_start, period_of_record_stop,'
+                    dbtuple = dbtuple + (por_start,por_end)
+                    qm = qm + '?,?,'
+                elif sd == 'SENSOR_VARIABLES':
+                    var = sd.lower()                
+                    sql = sql + var + ','
+                    qm = qm + '?,'
+                    pdat = pickle.dumps(st[sd],pickle.HIGHEST_PROTOCOL)
+                    val = (pdat,)
+                    dbtuple = dbtuple + val
+
+            sql = sql.rstrip(',')
+            qm = qm.strip(',')
+            sql = sql + ') VALUES('+ qm + ')'
+
+        self.cursor.execute(sql,dbtuple)
+        self.connection.commit()
+
     def close(self):
         self.db_name = None
         self.cursor = None
@@ -263,14 +251,13 @@ class WeatherDB(object):
     
 if __name__ == '__main__':
 
-#    create_weather_db("test_example.db")
-#    radius_data = get_example_radius_dataset()    
-#    add_station_data(radius_data, "test_example.db")
 #    get_station_by_stid('PG133',"test_example.db")
 
+    radius_data = get_example_radius_dataset()    
     mydb0 = WeatherDB.create("test_example.db")
-    mydb1 = WeatherDB("test_example.db")
+    mydb0.add_station(radius_data)
+#    mydb1 = WeatherDB("test_example.db")
     mydb0.close()
-    mydb1.close()
+
 
 
