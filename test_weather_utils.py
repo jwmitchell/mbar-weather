@@ -44,89 +44,19 @@ class Python2SQLTestCase(unittest.TestCase):
             sqltype = weather_utils.python_to_sql(python_object)
             print ("sqltype " + sqltype)
 
-class StationAddTestCase(unittest.TestCase):
-
-    def setUp(self):
-        try:
-            mydb = weather_utils.WeatherDB.create('test/test_weather_data.db')
-            self.test_data = eval(open('test/test_novato_1.dat', 'r').read())
-        except:
-            pass
-            
-    def test_fail_open_db(self):
-        db_name = "totally_bogus.db"
-        data = {}
-        with self.assertRaises(FileExistsError):
-            weather_utils.add_station_data(data,db_name)
-
-    def test_add_stations(self):
-        db_name = "test/test_weather_data.db"
-        weather_utils.add_station_data(self.test_data,db_name)
-        try:
-            connection = sqlite3.connect(db_name)
-        except Error as e:
-            print(e)
-        cc = connection.cursor()
-        cc.execute('SELECT stid FROM station')
-        stations = cc.fetchall()
-        st3, = stations[3]
-        if st3 != 'PG133':
-            raise RuntimeError("Data error in db: " + st3)
-        connection.close()
-
-
-    def tearDown(self):
-        try:
-            os.remove('test/test_weather_data.db')
-        except:
-            pass
-
-class GetStationBySTIDTestCase(unittest.TestCase):
-
-    def setUp(self):
-        try:
-            mydb = weather_utils.WeatherDB.create('test/test_weather_data.db')
-            self.test_data = eval(open('test/test_pge133_1.dat', 'r').read())
-            radius_data = weather_utils.get_example_radius_dataset()    
-            weather_utils.add_station_data(radius_data,'test/test_weather_data.db')           
-        except:
-            raise RuntimeError("Test Class Initialization Error")
-            
-    def test_fail_open_db(self):
-        db_name = 'totally_bogus.db'
-        stid = 'PGE133'
-        with self.assertRaises(FileExistsError):
-            weather_utils.get_station_by_stid(stid,db_name)
-
-    def test_invalid_station(self):
-        db_name = 'test/test_weather_data.db'
-        stid = 'BOGUS'
-        with self.assertRaises(ValueError):
-            weather_utils.get_station_by_stid(stid,db_name)
-
-    def test_existing_station(self):
-        db_name = 'test/test_weather_data.db'
-        stid = 'PG133'
-        tdat = weather_utils.get_station_by_stid(stid,db_name)
-        ismatch = True
-        for wd in tdat:
-            if wd != 'PERIOD_OF_RECORD_STOP':
-                if tdat[wd] != self.test_data[wd]:
-                    ismatch = False
-        self.assertTrue(ismatch)
-        
-    def tearDown(self):
-        try:
-            os.remove('test/test_weather_data.db')
-        except:
-            pass
-
 class WeatherDBTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(WeatherDBTest):
+        try:
+            os.remove('test/test_weather_data.db')
+        except:
+            pass
         db_name = 'test/test_weather_data.db'
+        radius_data = weather_utils.get_example_radius_dataset()
         WeatherDBTest._connection = weather_utils.WeatherDB.create(db_name)
+        WeatherDBTest._connection.add_station(radius_data)
+        print("Radius data added")
     
     def test_create_db(self):
         db_name = 'test/test_weather_data_2.db'
@@ -155,6 +85,41 @@ class WeatherDBTest(unittest.TestCase):
         self.assertTrue(mydb.cursor.fetchone())
         mydb.close()
         
+    def test_add_stations(self):
+        db_name = "test/test_weather_data_2.db"
+        mydb = weather_utils.WeatherDB.create(db_name)
+        try:
+            test_data = eval(open('test/test_novato_1.dat', 'r').read())
+        except Error as e:
+            print(e)
+        mydb.add_station(test_data)
+        mydb.cursor.execute('SELECT stid FROM station')
+        stations = mydb.cursor.fetchall()
+        st3, = stations[0]
+        if st3 != 'PG133':
+            raise RuntimeError("Data error in db: " + st3)
+        mydb.close()
+        os.remove('test/test_weather_data_2.db')
+
+#    def test_invalid_station(self):
+#        db_name = 'test/test_weather_data.db'
+#        mydb = weather_utils.WeatherDB(db_name)
+#        stid = 'BOGUS'
+#        with self.assertRaises(ValueError):
+#            weather_utils.get_station_by_stid(stid,db_name)
+#
+#   def test_existing_station(self):
+#        db_name = 'test/test_weather_data.db'
+#        stid = 'PG133'
+#        tdat = weather_utils.get_station_by_stid(stid,db_name)
+#        ismatch = True
+#        for wd in tdat:
+#            if wd != 'PERIOD_OF_RECORD_STOP':
+#                if tdat[wd] != self.test_data[wd]:
+#                    ismatch = False
+#        self.assertTrue(ismatch)
+    
+
     def test_close(self):
         db_name = 'test/test_weather_data.db'
         mydb = weather_utils.WeatherDB(db_name)
