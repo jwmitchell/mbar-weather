@@ -49,47 +49,13 @@ def get_example_radius_dataset():
     data = req.json()
     return(data)
 
-def get_station_by_stid(stid,db_name):
+def get_station_by_stid(stid,db_object):
 # Get the station by id from the database, and provide it as a standard format
 # dictionary.
-    
-    if not os.path.isfile(db_name):
-        raise FileExistsError(db_name + " does not exist")
-    try:
-        connection = sqlite3.connect(db_name)
-    except Error as e:
-        print(e)
-    cc = connection.cursor()
-    sql = 'SELECT * FROM station WHERE stid = \'' + stid + '\';'
-
-    cc.execute(sql)
-    sttuple = cc.fetchone()
-
-    if sttuple != None:        # Station already exists in database
-    
-        # sqlite returns data in a tuple format. This needs to be converted into the
-        # standard dictionary format used by synoptic. Keys are also in CAPS.
-    
-        stdict = {}
-        attr = 0
-        for stk in cc.description:
-            stkey = stk[0].upper()
-            stdict[stkey] = sttuple[attr]
-            attr += 1
-            
-        # The SENSOR_VARIABLES data were packed as a binary and need to be unpickled
-            
-        stdict['SENSOR_VARIABLES'] = pickle.loads(stdict['SENSOR_VARIABLES'])
-            
-        print(stdict)
-
-    else:
-        estring = str(stid) + ' is not a valid station'
-        raise ValueError(estring)
-
-    return stdict
-
-    
+    station = db_object.get_station(stid)
+    if station == None:
+        print("Need to call to API to get station")
+        pass
     ## Next steps: check for null tuple, if null find API call for station, add new station.
 
 class WeatherDB(object):
@@ -240,9 +206,28 @@ class WeatherDB(object):
             qm = qm.strip(',')
             sql = sql + ') VALUES('+ qm + ')'
 
-        self.cursor.execute(sql,dbtuple)
+            self.cursor.execute(sql,dbtuple)
         self.connection.commit()
 
+    def get_station(self, stid):
+        sql = 'SELECT * FROM station WHERE stid = \'' + stid + '\';'
+        self.cursor.execute(sql)
+        sttuple = self.cursor.fetchone()
+        stdict = {}
+
+        if sttuple != None:        # Station already exists in database  
+            # sqlite returns data in a tuple format. This needs to be converted into the
+            # standard dictionary format used by synoptic. Keys are also in CAPS.    
+            attr = 0
+            for stk in self.cursor.description:
+                stkey = stk[0].upper()
+                stdict[stkey] = sttuple[attr]
+                attr += 1
+            # The SENSOR_VARIABLES data were packed as a binary and need to be unpickled       
+            stdict['SENSOR_VARIABLES'] = pickle.loads(stdict['SENSOR_VARIABLES'])
+
+        return stdict        
+        
     def close(self):
         self.db_name = None
         self.cursor = None
@@ -251,12 +236,12 @@ class WeatherDB(object):
     
 if __name__ == '__main__':
 
-#    get_station_by_stid('PG133',"test_example.db")
 
     radius_data = get_example_radius_dataset()    
     mydb0 = WeatherDB.create("test_example.db")
     mydb0.add_station(radius_data)
-#    mydb1 = WeatherDB("test_example.db")
+    station = get_station_by_stid('PG133',mydb0)
+    print(station)
     mydb0.close()
 
 
