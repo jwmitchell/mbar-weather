@@ -53,10 +53,11 @@ def get_station_by_stid(stid,db_object):
 # Get the station by id from the database, and provide it as a standard format
 # dictionary.
     station = db_object.get_station(stid)
-    if station == None:
+    if station == {}:
         print("Need to call to API to get station")
-        pass
+        raise ValueError("Invalid station name")
     ## Next steps: check for null tuple, if null find API call for station, add new station.
+    return station
 
 class WeatherDB(object):
 
