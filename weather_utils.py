@@ -16,12 +16,13 @@ def get_base_api_request_url(query_type):
     query_type_address = ''
     if query_type == 'timeseries':
         query_type_address = 'stations/' + query_type
+    elif query_type == 'station':
+        query_type_address = 'stations/metadata'    
     else:
         raise ValueError('Invalid query type: ' + query_type)
         
-    base_api_request_url = os.path.join(api, "stations/timeseries")
+    base_api_request_url = os.path.join(api, query_type_address)
     return base_api_request_url
-
 
 def python_to_sql(obj):
     sqltype = 'NULL'
@@ -53,11 +54,19 @@ def get_station_by_stid(stid,db_object):
 # Get the station by id from the database, and provide it as a standard format
 # dictionary.
     station = db_object.get_station(stid)
+    rc = 0
     if station == {}:
-        print("Need to call to API to get station")
-        raise ValueError("Invalid station name")
-    ## Next steps: check for null tuple, if null find API call for station, add new station.
-    return station
+        # Call API to find station
+        api_request_url = get_base_api_request_url('station')
+        api_arguments = {'token':token,'stid':stid,'sensorvars':1}
+        req = requests.get(api_request_url, params=api_arguments)
+        station = req.json()
+        rc = station['SUMMARY']['RESPONSE_CODE']
+        if rc == 2:
+            estr = "stid " + stid + " is not a valid station"
+            raise ValueError(estr)
+        db_object.add_station(station)
+    return(station)
 
 class WeatherDB(object):
 
@@ -175,10 +184,20 @@ class WeatherDB(object):
 
     def add_station(self,data):
 
-        if data['STATION'] == None:
+        starr = []
+        #Determine nesting of data structure containing station data and pack into array
+        if data == None:
             raise ValueError('No station data has been provided')
-
-        for st in data['STATION']:
+        try:
+            starr = data['STATION']    #Station array
+        except KeyError:
+            try:
+                sttest = data['SID']
+                starr = [data]         #Single station data
+            except KeyError:
+                print("Unrecognized station data structure")
+            
+        for st in starr:
             sql = 'INSERT INTO station('
             dbtuple = ()
             qm = ''
@@ -243,7 +262,7 @@ if __name__ == '__main__':
     mydb0.add_station(radius_data)
     station = get_station_by_stid('PG133',mydb0)
     print(station)
+    station = get_station_by_stid('PG130',mydb0)
+    print(station)
+    station = get_station_by_stid('Bogus',mydb0)
     mydb0.close()
-
-
-
