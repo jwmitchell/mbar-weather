@@ -36,7 +36,7 @@ def python_to_sql(obj):
         sqltype = 'REFERENCE'   # Not a real sql type, foreign key
     else:
         errstr = "Type " + str(type(obj)) + " is not a recognized SQL type"
-        raise ValueError(errstr)
+        raise TypeError(errstr)
     return sqltype
                          
     
@@ -52,7 +52,9 @@ def get_example_radius_dataset():
 
 def get_station_by_stid(stid,db_object):
 # Get the station by id from the database, and provide it as a standard format
-# dictionary.
+# dictionary. If it is not found, get it from the Synoptic API.
+# To eliminate nesting differences, fetch the final station data from the database once
+# it has been entered.
     station = db_object.get_station(stid)
     rc = 0
     if station == {}:
@@ -66,6 +68,7 @@ def get_station_by_stid(stid,db_object):
             estr = "stid " + stid + " is not a valid station"
             raise ValueError(estr)
         db_object.add_station(station)
+        station = db_object.get_station(stid)    # Ensures same format for existing & new
     return(station)
 
 class WeatherDB(object):

@@ -40,7 +40,7 @@ class Python2SQLTestCase(unittest.TestCase):
 
     def test_other_type(self):
         python_object = [1, 2, 3]
-        with self.assertRaises(ValueError):
+        with self.assertRaises(TypeError):
             sqltype = weather_utils.python_to_sql(python_object)
             print ("sqltype " + sqltype)
 
@@ -151,6 +151,11 @@ class TestGetStationBySTIDTestCase(unittest.TestCase):
 
     def test_get_existing_station(self):
         stid = 'PG133'
+        tdat = weather_utils.get_station_by_stid(stid,self.mydb)
+        self.assertEqual(stid,tdat['STID'])
+
+    def test_fetch_new_station(self):
+        stid = 'PG130'
         tdat = weather_utils.get_station_by_stid(stid,self.mydb)
         self.assertEqual(stid,tdat['STID'])
                     
