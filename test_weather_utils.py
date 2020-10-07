@@ -166,6 +166,7 @@ class TestGetStationBySTIDTestCase(unittest.TestCase):
 
     def tearDown(self):
         try:
+            close('test/test_novato_1.dat')
             os.remove('test/test_weather_data.db')
         except:
             pass

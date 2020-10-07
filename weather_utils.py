@@ -43,7 +43,6 @@ def python_to_sql(obj):
 def get_example_radius_dataset():
     radius = (38.09,-122.65,3)
     st_radius = ",".join(map(str,radius))
-
     api_arguments = {"token":token,"start":"201910092300","end":"201910100400","radius":st_radius,"units":units}
     api_request_url = get_base_api_request_url("timeseries")
     req = requests.get(api_request_url, params=api_arguments)
@@ -85,13 +84,11 @@ class WeatherDB(object):
     def __init__(self,db_name):
         if not os.path.isfile(db_name):
             raise FileExistsError(db_name + " does not exist, use WeatherDB.create(db_name)")
-
         print("Opening " + db_name)
         try:
             connection = sqlite3.connect(db_name)
         except Error as e:
             print(e)
-
         self.connection = connection
         self.cursor = connection.cursor()
         self.db_name = db_name
@@ -107,7 +104,6 @@ class WeatherDB(object):
         # Get example dataset - Currently this is dynamically pulled from Synoptic, probably
         # should be static data
         radius_data = get_example_radius_dataset()
-        print("Creating tables for " + db_name)
 
         # Create table for UNITS
         mydb.cursor.execute('''SELECT count(name) FROM sqlite_master WHERE type='table' AND name='units' ''')
@@ -162,7 +158,7 @@ class WeatherDB(object):
         mydb.cursor.execute('''SELECT count(name) FROM sqlite_master WHERE type='table' AND name='observations' ''')
         if mydb.cursor.fetchone()[0] ==1:        #Error if table exists
             raise RuntimeError("SQL table observations already exists")
-        sql = 'CREATE TABLE observations (date_time TEXT PRIMARY KEY, '
+        sql = 'CREATE TABLE observations (sid INTEGER PRIMARY KEY, date_time TEXT,' 
         iv = 0
         vlen = len(radius_data['STATION'][0]['OBSERVATIONS'].keys())
         for v in radius_data['STATION'][0]['OBSERVATIONS'].keys():
@@ -173,7 +169,7 @@ class WeatherDB(object):
             if sqltype != 'REFERENCE' and v != 'date_time':
                 sql = sql + v.lower() + '  ' + sqltype + comma
         
-        sql = sql + ' stid TEXT NOT NULL, FOREIGN KEY (stid) REFERENCES station (stid) );'
+        sql = sql + ' volt_set_1 REAL, stid TEXT NOT NULL, FOREIGN KEY (stid) REFERENCES station (stid) );'
         print(sql)
         try:
             mydb.cursor.execute(sql)
@@ -186,7 +182,6 @@ class WeatherDB(object):
     create = staticmethod(create)
 
     def add_station(self,data):
-
         starr = []
         #Determine nesting of data structure containing station data and pack into array
         if data == None:
@@ -198,8 +193,7 @@ class WeatherDB(object):
                 sttest = data['SID']
                 starr = [data]         #Single station data
             except KeyError:
-                print("Unrecognized station data structure")
-            
+                print("Unrecognized station data structure")           
         for st in starr:
             sql = 'INSERT INTO station('
             dbtuple = ()
@@ -237,7 +231,6 @@ class WeatherDB(object):
         self.cursor.execute(sql)
         sttuple = self.cursor.fetchone()
         stdict = {}
-
         if sttuple != None:        # Station already exists in database  
             # sqlite returns data in a tuple format. This needs to be converted into the
             # standard dictionary format used by synoptic. Keys are also in CAPS.    
@@ -248,9 +241,45 @@ class WeatherDB(object):
                 attr += 1
             # The SENSOR_VARIABLES data were packed as a binary and need to be unpickled       
             stdict['SENSOR_VARIABLES'] = pickle.loads(stdict['SENSOR_VARIABLES'])
-
         return stdict        
-        
+
+    def add_observations(self,data):
+        #Determine nesting of data structure containing station data and pack into array
+        if data == None:
+            raise ValueError('No observation data has been provided')
+        try:
+            starr = data['STATION']    #Station array
+        except KeyError:
+            try:
+                sttest = data['SID']
+                starr = [data]         #Single station data
+            except KeyError:
+                print("Unrecognized station data structure")           
+        for station in data['STATION']:
+            sql = 'INSERT INTO observations('
+            stid = station['STID']
+            stdat = self.get_station(stid)
+            obar = []
+            qm = ''
+            if stdat == {}:
+                self.add_station(data)
+            for i in range(len(station['OBSERVATIONS']['date_time'])):
+                obtuple = ()
+                for okey in station['OBSERVATIONS'].keys():
+                    var = okey.lower()
+                    val = (station['OBSERVATIONS'][okey][i],)
+                    if i == 0:
+                        sql = sql + var + ','
+                        qm = qm + '?,'
+                    obtuple = obtuple + val
+                obtuple = obtuple + (stid,)
+                obar.append(obtuple)
+            qm.strip(',')
+            sql = sql + 'stid) VALUES('+ qm + '?);'
+            print(sql)
+            self.connection.executemany(sql,obar)
+        self.connection.commit()
+    
     def close(self):
         self.db_name = None
         self.cursor = None
@@ -259,13 +288,14 @@ class WeatherDB(object):
     
 if __name__ == '__main__':
 
-
     radius_data = get_example_radius_dataset()    
     mydb0 = WeatherDB.create("test_example.db")
-    mydb0.add_station(radius_data)
-    station = get_station_by_stid('PG133',mydb0)
-    print(station)
-    station = get_station_by_stid('PG130',mydb0)
-    print(station)
-    station = get_station_by_stid('Bogus',mydb0)
+    #    mydb0.add_station(radius_data)
+    #    station = get_station_by_stid('PG133',mydb0)
+    #    print(station)
+    #    station = get_station_by_stid('PG130',mydb0)
+    #    print(station)
+    #    station = get_station_by_stid('Bogus',mydb0)
+    mydb0.add_observations(radius_data)
+    
     mydb0.close()
