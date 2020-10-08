@@ -158,7 +158,7 @@ class WeatherDB(object):
         mydb.cursor.execute('''SELECT count(name) FROM sqlite_master WHERE type='table' AND name='observations' ''')
         if mydb.cursor.fetchone()[0] ==1:        #Error if table exists
             raise RuntimeError("SQL table observations already exists")
-        sql = 'CREATE TABLE observations (sid INTEGER PRIMARY KEY, date_time TEXT,' 
+        sql = 'CREATE TABLE observations (date_time TEXT,' 
         iv = 0
         vlen = len(radius_data['STATION'][0]['OBSERVATIONS'].keys())
         for v in radius_data['STATION'][0]['OBSERVATIONS'].keys():
@@ -169,7 +169,7 @@ class WeatherDB(object):
             if sqltype != 'REFERENCE' and v != 'date_time':
                 sql = sql + v.lower() + '  ' + sqltype + comma
         
-        sql = sql + ' volt_set_1 REAL, stid TEXT NOT NULL, FOREIGN KEY (stid) REFERENCES station (stid) );'
+        sql = sql + ' volt_set_1 REAL, stid TEXT NOT NULL, PRIMARY KEY (stid, date_time), FOREIGN KEY (stid) REFERENCES station (stid) );'
         print(sql)
         try:
             mydb.cursor.execute(sql)
@@ -256,7 +256,7 @@ class WeatherDB(object):
             except KeyError:
                 print("Unrecognized station data structure")           
         for station in data['STATION']:
-            sql = 'INSERT INTO observations('
+            sql = 'INSERT OR IGNORE INTO observations ('
             stid = station['STID']
             stdat = self.get_station(stid)
             obar = []
@@ -296,6 +296,7 @@ if __name__ == '__main__':
     #    station = get_station_by_stid('PG130',mydb0)
     #    print(station)
     #    station = get_station_by_stid('Bogus',mydb0)
+    mydb0.add_observations(radius_data)
     mydb0.add_observations(radius_data)
     
     mydb0.close()
