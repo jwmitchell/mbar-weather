@@ -48,6 +48,7 @@ class WeatherDBTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(WeatherDBTest):
+        print('WeatherDBTest - SetUp')
         try:
             os.remove('test/test_weather_data.db')
         except:
@@ -62,6 +63,7 @@ class WeatherDBTest(unittest.TestCase):
             print(e)
     
     def test_create_db(self):
+        print('WeatherDBTest - test_create_db')
         try:
             os.remove('test/test_weather_data_2.db')
         except:
@@ -75,16 +77,19 @@ class WeatherDBTest(unittest.TestCase):
         os.remove('test/test_weather_data_2.db')
         
     def test_db_unavailable(self):
+        print('WeatherDBTest - test_db_unavailable')
         mydb = None
         with self.assertRaises(FileExistsError):
             mydb = weather_utils.WeatherDB('bogus_db')
 
     def test_db_already_exists(self):
+        print('WeatherDBTest - test_db_already_exists')
         db_name = 'test/test_weather_data.db'
         with self.assertRaises(ValueError):
             mydb = weather_utils.WeatherDB.create(db_name)
     
     def test_open(self):
+        print('WeatherDBTest - test_open')
         db_name = 'test/test_weather_data.db'
         mydb = weather_utils.WeatherDB(db_name)
         sql = "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='station'";
@@ -93,6 +98,7 @@ class WeatherDBTest(unittest.TestCase):
         mydb.close()
         
     def test_add_stations(self):
+        print('WeatherDBTest - test_add_stations')
         try:
             os.remove('test/test_weather_data_2.db')
         except:
@@ -108,16 +114,51 @@ class WeatherDBTest(unittest.TestCase):
         os.remove('test/test_weather_data_2.db')
 
     def test_invalid_station(self):
+        print('WeatherDBTest - test_invalid_station')
         mydb = self._connection
         stid = 'BOGUS'
         stdat = mydb.get_station(stid)
         self.assertEqual(stdat,{}) 
 
     def test_existing_station(self):
+        print('WeatherDBTest - test_existing_station')
         mydb = self._connection
         stid = 'PG133'
         tdat = mydb.get_station(stid)
-        self.assertEqual(stid,tdat['STID'])    
+        self.assertEqual(stid,tdat['STID'])
+
+    def test_add_observations(self):
+        print('WeatherDBTest - test_add_observations')
+        mydb = self._connection
+        mydb.add_observations(self.test_data)
+        mydb.cursor.execute('SELECT count(*) FROM observations;')
+        countpl = mydb.cursor.fetchone()
+        (count,) = countpl
+        self.assertEqual(count,154)
+
+    def test_unique_observations(self):
+        print('WeatherDBTest - test_unique_observations')
+        mydb = self._connection
+        mydb.add_observations(self.test_data)
+        mydb.add_observations(self.test_data)
+        mydb.cursor.execute('SELECT count(*) FROM observations;')
+        countpl = mydb.cursor.fetchone()
+        (count,) = countpl
+        self.assertEqual(count,154)
+
+    def test_no_observations(self):
+        print('WeatherDBTest - test_no_observations')
+        mydb = self._connection
+        bogus_data = None
+        with self.assertRaises(ValueError):
+            mydb.add_observations(bogus_data)
+
+    def test_bad_observations(self):
+        print('WeatherDBTest - test_bad_observations')
+        mydb = self._connection
+        bogus_data = {'first': ['alpha','beta','gamma'],'second':[1,2,3]}
+        with self.assertRaises(KeyError):
+            mydb.add_observations(bogus_data)
 
     def test_close(self):
         db_name = 'test/test_weather_data.db'
