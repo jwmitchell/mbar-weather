@@ -245,7 +245,7 @@ class WeatherDB(object):
 
     def add_observations(self,data):
         #Determine nesting of data structure containing station data and pack into array
-        if data == None:
+        if data == None or data == {}:
             raise ValueError('No observation data has been provided')
         try:
             starr = data['STATION']    #Station array
@@ -279,6 +279,27 @@ class WeatherDB(object):
             print(sql)
             self.connection.executemany(sql,obar)
         self.connection.commit()
+
+    def get_observations(self,stid,dtlow,dthigh):
+        sql = f'''SELECT * FROM observations WHERE stid = \'{stid}\' AND \
+        date_time BETWEEN \'{dtlow}\' AND \'{dthigh}\' \
+        ;'''
+        self.cursor.execute(sql)
+        obstuplist = self.cursor.fetchall()
+        oblist = []
+        if len(obstuplist) != 0:        # Found some observations in database  
+            # sqlite returns data in a tuple format. This needs to be converted into the
+            # standard dictionary format used by synoptic. Keys are also in CAPS.
+            for obtup in obstuplist:
+                attr = 0
+                obdict = {}
+                for obk in self.cursor.description:
+                    obkey = obk[0].upper()
+                    obdict[obkey] = obtup[attr]
+                    attr += 1
+                oblist.append(obdict)
+        return oblist
+        
     
     def close(self):
         self.db_name = None
@@ -297,6 +318,6 @@ if __name__ == '__main__':
     #    print(station)
     #    station = get_station_by_stid('Bogus',mydb0)
     mydb0.add_observations(radius_data)
-    mydb0.add_observations(radius_data)
+    obs = mydb0.get_observations('PG133','2019-10-09T23:11:00Z','2019-10-10T03:11:00Z')
     
     mydb0.close()
