@@ -165,6 +165,22 @@ class WeatherDBTest(unittest.TestCase):
         mydb = weather_utils.WeatherDB(db_name)
         mydb.close()
         self.assertTrue(mydb.cursor == None)
+
+    def test_get_observations(self):
+        mydb = self._connection
+        stid = 'PG133'
+        ostart = '2019-10-09T23:11:00Z'
+        ofinish = '2019-10-10T03:11:00Z'
+        obs = mydb.get_observations(stid,ostart,ofinish)
+        self.assertEqual(obs[0]['DATE_TIME'],'2019-10-09T23:20:00Z')
+
+    def test_no_observations(self):
+        mydb = self._connection
+        stid = 'PG133'
+        ostart = '2019-10-12T23:11:00Z'
+        ofinish = '2019-10-13T03:11:00Z'
+        obs = mydb.get_observations(stid,ostart,ofinish)
+        self.assertEqual(obs,[])
         
     @classmethod
     def tearDownClass(WeatherDBTest):
