@@ -44,6 +44,36 @@ class Python2SQLTestCase(unittest.TestCase):
             sqltype = weather_utils.python_to_sql(python_object)
             print ("sqltype " + sqltype)
 
+class TimeUtilsTest(unittest.TestCase):
+
+    def test_datetime(self):
+
+        dt1 = '2019-10-10T03:40:00Z'   # Zulu time format
+        dt2 = (2012,12,12,13,3)        # Time tuple format (Should be Pacific)
+        dt3 = '201910092311'           # Synoptic format
+        dta = (2012,88,0,0,0)          # Nonsense time
+        dtb = 'foobiar'                # Random string
+        
+        tudt1 = weather_utils.TimeUtils(dt1)
+        tudt2 = weather_utils.TimeUtils(dt2)
+        tudt3 = weather_utils.TimeUtils(dt3)
+
+        self.assertEqual(tudt1.datetime.datetime.month,10)
+        self.assertEqual(tudt2.datetime.datetime.year,2012)
+        self.assertEqual(tudt3.datetime.datetime.minute,11)
+
+        with self.assertRaises(ValueError):
+            tudta = weather_utils.TimeUtils(dta)
+        with self.assertRaises(ValueError):
+            tudtb = weather_utils.TimeUtils(dtb)
+
+    def test_synop(self):
+
+        dt1 = '2019-10-10T03:40:00Z'
+        tudt1 = weather_utils.TimeUtils(dt1)
+        sydt1 = tudt1.synop()
+        self.assertEqual(sydt1,'201910100340')
+        
 class WeatherDBTest(unittest.TestCase):
 
     @classmethod
