@@ -5,8 +5,11 @@ import urllib.request as req
 import requests
 import os.path
 import json
-import sqlite3
+import sqlite3    #needs pip install
 import pickle
+import datetime
+import pytz
+import zulu       #Needs pip install
 
 api = weather_config.config['Default']['API_ROOT']
 token = weather_config.config['Default']['API_TOKEN']
@@ -69,6 +72,62 @@ def get_station_by_stid(stid,db_object):
         db_object.add_station(station)
         station = db_object.get_station(stid)    # Ensures same format for existing & new
     return(station)
+
+def get_observations_by_stid_datetime(stid,firstdt,lastdt,db_object):
+    # Get a set of observations from a specified weather station in a specified time range.
+    # Zulu time is used for the timestamps. This needs to be converted into Julian in order to
+    # determined whether the database contains a complete record.
+    # First, make sure that the station is there.
+    get_station_by_stid(stid,db_object)
+    obs = db_object.get_observations(stid,firstdt,lastdt)
+    firzdt = TimeUtils(firstdt)
+    laszdt = TimeUtils(lastdt)
+    if obs != []:
+        nobs = len(obs)
+        if nobs > 1:
+            secobtime = obs[1]['DATE_TIME']
+            secztime = TimeUtils(secobtime)
+            tdelta = secztime.datetime - firzdt.datetime
+            trange = laszdt.datetime - firzdt.datetime 
+            ticks = int(trange.seconds / tdelta.seconds)
+            difobsticks = abs(nobs-ticks)
+            if difobsticks > 1:
+                # There are missing observations within the time range. Call the API to get missing
+                # data over the entire range.
+                print("Need to call the API: Obs: " + str(nobs) + "  ticks: " + str(ticks))
+
+class TimeUtils(object):
+
+    # The TimeUtils class handles coversion between synoptic API (YYYYMMDDHHSS, UTC), synoptic data
+    # (Zulu), and local tuple data ((y,m,d,h,m), Pacific). Data will be stored as a Zulu object.
+
+    def __init__(self, timeobj):
+
+        self.datetime = None
+        if isinstance(timeobj,datetime.datetime):
+            self.datetime = zulu.Zulu.fromdatetime(timeobj) 
+        elif isinstance(timeobj,tuple):
+            dt = datetime.datetime(*timeobj)
+            self.datetime = zulu.Zulu.fromdatetime(dt)           
+        elif isinstance(timeobj,zulu.zulu.Zulu):
+            self.datetime = timeobj
+        elif isinstance(timeobj,str):
+            try:     #Zulu string
+                self.datetime = zulu.parse(timeobj)
+            except zulu.parser.ParseError:  # Now try synopt string
+                try:
+                    dt = datetime.datetime(int(timeobj[0:4]),int(timeobj[4:6]),int(timeobj[6:8]),
+                                           int(timeobj[8:10]),int(timeobj[10:12]))
+                    self.datetime = zulu.Zulu.fromdatetime(dt)
+                except AttributeError:
+                    print("Invalid time string format for " + timeobj)
+
+    def synop(self):
+        # synoptic string is YYYYMMDDHHMM
+        ztpl = self.datetime.utctimetuple()
+        synopstr = str(ztpl[0]) + str(ztpl[1]).zfill(2) + str(ztpl[2]).zfill(2) + \
+            str(ztpl[3]).zfill(2) + str(ztpl[4]).zfill(2)
+        return synopstr
 
 class WeatherDB(object):
 
@@ -290,6 +349,9 @@ class WeatherDB(object):
         if len(obstuplist) != 0:        # Found some observations in database  
             # sqlite returns data in a tuple format. This needs to be converted into the
             # standard dictionary format used by synoptic. Keys are also in CAPS.
+            # Also, synoptic returns a dict of lists for each variable. In order to provide
+            # atomic time data, weather_utils converts this to a list of dicts, so that all
+            # data associated with a time stamp are attributes of a dict.
             for obtup in obstuplist:
                 attr = 0
                 obdict = {}
@@ -319,5 +381,13 @@ if __name__ == '__main__':
     #    station = get_station_by_stid('Bogus',mydb0)
     mydb0.add_observations(radius_data)
     obs = mydb0.get_observations('PG133','2019-10-09T23:11:00Z','2019-10-10T03:11:00Z')
+    obs2 = get_observations_by_stid_datetime('PG133','2019-10-09T23:11:00Z','2019-10-10T01:11:00Z',mydb0)
+    obs3 = get_observations_by_stid_datetime('PG133','2019-10-09T23:11:00Z','2019-10-10T11:11:00Z',mydb0)
+    t1 = TimeUtils('201910092311')
+    t2 = TimeUtils((2012,12,12,13,3))
+    t3 = TimeUtils('2012-08-08T00:00:00Z')
+    t4 = TimeUtils('2012-08-08T05:38:12Z')
+
+    tint2 = t2.synop()
     
     mydb0.close()
