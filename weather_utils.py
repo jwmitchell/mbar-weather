@@ -75,9 +75,9 @@ def get_station_by_stid(stid,db_object):
 
 def get_observations_by_stid_datetime(stid,firstdt,lastdt,db_object):
     # Get a set of observations from a specified weather station in a specified time range.
-    # Zulu time is used for the timestamps. This needs to be converted into Julian in order to
-    # determined whether the database contains a complete record.
-    # First, make sure that the station is there.
+    # Zulu time is used for the timestamps. 
+    # Checks whether the database contains a complete record. If not, re-fills from time range.
+
     get_station_by_stid(stid,db_object)
     obs = db_object.get_observations(stid,firstdt,lastdt)
     firzdt = TimeUtils(firstdt)
@@ -95,6 +95,12 @@ def get_observations_by_stid_datetime(stid,firstdt,lastdt,db_object):
                 # There are missing observations within the time range. Call the API to get missing
                 # data over the entire range.
                 print("Need to call the API: Obs: " + str(nobs) + "  ticks: " + str(ticks))
+                api_arguments = {"token":token,"start":firzdt.synop(),"end":laszdt.synop(),"stid":stid,"units":units}
+                api_request_url = get_base_api_request_url("timeseries")
+                req = requests.get(api_request_url, params=api_arguments)
+                data = req.json()
+                db_object.add_observations(data)
+                return(data)
 
 class TimeUtils(object):
 
@@ -383,11 +389,5 @@ if __name__ == '__main__':
     obs = mydb0.get_observations('PG133','2019-10-09T23:11:00Z','2019-10-10T03:11:00Z')
     obs2 = get_observations_by_stid_datetime('PG133','2019-10-09T23:11:00Z','2019-10-10T01:11:00Z',mydb0)
     obs3 = get_observations_by_stid_datetime('PG133','2019-10-09T23:11:00Z','2019-10-10T11:11:00Z',mydb0)
-    t1 = TimeUtils('201910092311')
-    t2 = TimeUtils((2012,12,12,13,3))
-    t3 = TimeUtils('2012-08-08T00:00:00Z')
-    t4 = TimeUtils('2012-08-08T05:38:12Z')
 
-    tint2 = t2.synop()
-    
     mydb0.close()
