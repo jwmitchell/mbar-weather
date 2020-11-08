@@ -100,7 +100,9 @@ def get_observations_by_stid_datetime(stid,firstdt,lastdt,db_object):
                 req = requests.get(api_request_url, params=api_arguments)
                 data = req.json()
                 db_object.add_observations(data)
-                return(data)
+                obs = db_object.get_observations(stid,firstdt,lastdt)
+
+    return(obs)
 
 class TimeUtils(object):
 
