@@ -82,6 +82,7 @@ def get_observations_by_stid_datetime(stid,firstdt,lastdt,db_object):
     obs = db_object.get_observations(stid,firstdt,lastdt)
     firzdt = TimeUtils(firstdt)
     laszdt = TimeUtils(lastdt)
+    needsapi = False
     if obs != []:
         nobs = len(obs)
         if nobs > 1:
@@ -92,15 +93,19 @@ def get_observations_by_stid_datetime(stid,firstdt,lastdt,db_object):
             ticks = int(trange.seconds / tdelta.seconds)
             difobsticks = abs(nobs-ticks)
             if difobsticks > 1:
-                # There are missing observations within the time range. Call the API to get missing
-                # data over the entire range.
-                print("Need to call the API: Obs: " + str(nobs) + "  ticks: " + str(ticks))
-                api_arguments = {"token":token,"start":firzdt.synop(),"end":laszdt.synop(),"stid":stid,"units":units}
-                api_request_url = get_base_api_request_url("timeseries")
-                req = requests.get(api_request_url, params=api_arguments)
-                data = req.json()
-                db_object.add_observations(data)
-                obs = db_object.get_observations(stid,firstdt,lastdt)
+                needsapi = True
+    else:
+        needsapi = True
+        
+    if needsapi:
+        # There are missing observations within the time range.
+        # Call the API to get missing data over the entire range.
+        api_arguments = {"token":token,"start":firzdt.synop(),"end":laszdt.synop(),"stid":stid,"units":units}
+        api_request_url = get_base_api_request_url("timeseries")
+        req = requests.get(api_request_url, params=api_arguments)
+        data = req.json()
+        db_object.add_observations(data)
+        obs = db_object.get_observations(stid,firstdt,lastdt)
 
     return(obs)
 

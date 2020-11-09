@@ -251,6 +251,39 @@ class TestGetStationBySTIDTestCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             stdat = weather_utils.get_station_by_stid(stid,self.mydb)
 
+    def test_get_obs_by_stid_datetime(self):
+        stid = 'PG133'
+        dt1 = '2019-10-11T23:11:00Z'
+        dt2 = '2019-10-12T01:11:00Z'
+        self.mydb.cursor.execute('SELECT count(*) FROM observations;')
+        countpl = self.mydb.cursor.fetchone()
+        # Baseline for number of observations in db
+        (count0,) = countpl
+        
+        obs = weather_utils.get_observations_by_stid_datetime(stid,dt1,dt2,self.mydb)
+        self.assertEqual(obs[0]['DATE_TIME'],'2019-10-11T23:20:00Z')
+        self.mydb.cursor.execute('SELECT count(*) FROM observations;')
+        countpl = self.mydb.cursor.fetchone()
+        (count1,) = countpl
+        self.assertEqual(count1-count0,12)
+
+        # Should rerun with same results
+        obs = weather_utils.get_observations_by_stid_datetime(stid,dt1,dt2,self.mydb)
+        self.assertEqual(obs[0]['DATE_TIME'],'2019-10-11T23:20:00Z')
+        self.mydb.cursor.execute('SELECT count(*) FROM observations;')
+        countpl = self.mydb.cursor.fetchone()
+        (count2,) = countpl
+        self.assertEqual(count1,count2)
+
+        # Should return additional results if window expanded
+        dt3 = '2019-10-12T01:41:00Z'
+        obs = weather_utils.get_observations_by_stid_datetime(stid,dt1,dt3,self.mydb)
+        self.assertEqual(obs[11]['DATE_TIME'],'2019-10-12T01:10:00Z')
+        self.mydb.cursor.execute('SELECT count(*) FROM observations;')
+        countpl = self.mydb.cursor.fetchone()
+        (count3,) = countpl
+        self.assertEqual(count3-count2,3)        
+
     def tearDown(self):
         try:
             close('test/test_novato_1.dat')
