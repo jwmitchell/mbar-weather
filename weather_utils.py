@@ -14,6 +14,8 @@ import zulu       #Needs pip install
 api = weather_config.config['Default']['API_ROOT']
 token = weather_config.config['Default']['API_TOKEN']
 units = weather_config.config['Default']['UNITS']
+db_schema_raw = weather_config.config['Schema']['DB_SCHEMA']
+db_schema = json.loads(db_schema_raw)
 
 def get_base_api_request_url(query_type):
     query_type_address = ''
@@ -46,7 +48,7 @@ def python_to_sql(obj):
 def get_example_radius_dataset():
     radius = (38.09,-122.65,3)
     st_radius = ",".join(map(str,radius))
-    api_arguments = {"token":token,"start":"201910092300","end":"201910100400","radius":st_radius,"units":units}
+    api_arguments = {"token":token,"start":"201910092300","end":"201910100400","radius":st_radius,"units":"metric"}
     api_request_url = get_base_api_request_url("timeseries")
     req = requests.get(api_request_url, params=api_arguments)
     data = req.json()
@@ -108,6 +110,31 @@ def get_observations_by_stid_datetime(stid,firstdt,lastdt,db_object):
         obs = db_object.get_observations(stid,firstdt,lastdt)
 
     return(obs)
+
+def get_observations_by_radius_datetime(latitude,longitude,radius,firstdt,lastdt,db_object):
+    # This will return all observations within the radius and time window. Will check for existence
+    # in database first. The time variables firstdt and lastdt are TimeUtils objects.
+
+    obsdb = check_db_radius_datetime(latitude,longitude,radius,firstdt,lastdt,db_object) # Stubbed
+
+    if obsdb == False:
+        georadius = (latitude,longitude,radius)
+        st_radius = ",".join(map(str,georadius))
+        api_arguments = {"token":token,"start":firstdt.synop(),"end":lastdt.synop(),"radius":st_radius,"units":units}
+        api_request_url = get_base_api_request_url("timeseries")
+        req = requests.get(api_request_url, params=api_arguments)
+        data = req.json()
+        db_object.add_observations(data)
+
+    return(data or obsdb)
+
+def check_db_radius_datetime(latitude,longitude,radius,firstdt,lastdt,db_object):
+    # Stubbed because this is hard.
+    # Proposed solution: 1) Return all stations within radius at firstdt. 2) Iterate over stations,
+    # getting all observations and checking completeness within time window 3) Merge all station
+    # observations into one object 4) As soon as any missing station or data is found, exit returning
+    # False.
+    return False
 
 class TimeUtils(object):
 
@@ -339,11 +366,12 @@ class WeatherDB(object):
                 obtuple = ()
                 for okey in station['OBSERVATIONS'].keys():
                     var = okey.lower()
-                    val = (station['OBSERVATIONS'][okey][i],)
-                    if i == 0:
-                        sql = sql + var + ','
-                        qm = qm + '?,'
-                    obtuple = obtuple + val
+                    if var in db_schema:
+                        val = (station['OBSERVATIONS'][okey][i],)
+                        if i == 0:
+                            sql = sql + var + ','
+                            qm = qm + '?,'
+                        obtuple = obtuple + val
                 obtuple = obtuple + (stid,)
                 obar.append(obtuple)
             qm.strip(',')
@@ -386,15 +414,10 @@ if __name__ == '__main__':
 
     radius_data = get_example_radius_dataset()    
     mydb0 = WeatherDB.create("test_example.db")
-    #    mydb0.add_station(radius_data)
-    #    station = get_station_by_stid('PG133',mydb0)
-    #    print(station)
-    #    station = get_station_by_stid('PG130',mydb0)
-    #    print(station)
-    #    station = get_station_by_stid('Bogus',mydb0)
     mydb0.add_observations(radius_data)
-    obs = mydb0.get_observations('PG133','2019-10-09T23:11:00Z','2019-10-10T03:11:00Z')
-    obs2 = get_observations_by_stid_datetime('PG133','2019-10-09T23:11:00Z','2019-10-10T01:11:00Z',mydb0)
-    obs3 = get_observations_by_stid_datetime('PG133','2019-10-09T23:11:00Z','2019-10-10T11:11:00Z',mydb0)
+
+    bt1 = TimeUtils('201609251534')
+    bt2 = TimeUtils('201609251934')
+    butte_data = get_observations_by_radius_datetime(38.801857,-122.817551,8.0,bt1,bt2,mydb0)
 
     mydb0.close()
