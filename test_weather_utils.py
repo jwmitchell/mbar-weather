@@ -219,7 +219,6 @@ class WeatherDBTest(unittest.TestCase):
         except:
             pass
 
-
 class TestGetStationBySTIDTestCase(unittest.TestCase):
 
     def setUp(self):
@@ -291,6 +290,35 @@ class TestGetStationBySTIDTestCase(unittest.TestCase):
         except:
             pass
         
+
+class GetMaxGustTestCase(unittest.TestCase):
+
+    def setUp(self):
+        try:
+            os.remove('test/test_weather_data.db')
+        except:
+            pass
+
+        db_name = 'test/test_weather_data.db'
+        self.mydb = weather_utils.WeatherDB.create(db_name)
+
+    def test_max_gust(self):
+
+        # I1004 test
+        ttpl = (1,2)
+        gtpl = (4,8)
+        lat = 38.801857
+        lon = -122.817551
+        tm = weather_utils.TimeUtils('201609251734')
+        mg = weather_utils.get_max_gust(lat,lon,tm,ttpl,gtpl,self.mydb)
+        self.assertEqual(mg[0][1][0],'HWKC1')
+        self.assertEqual(mg[1][1][4]/mg[0][1][4],2)  # Should be double in tm window
+
+    def tearDown(self):
+        try:
+            os.remove('test/test_weather_data.db')
+        except:
+            pass
         
 if __name__ == '__main__':
     unittest.main()
