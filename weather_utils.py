@@ -8,6 +8,7 @@ import json
 import sqlite3    #needs pip install
 import pickle
 import datetime
+from datetime import timedelta
 import pytz
 import zulu       #Needs pip install
 
@@ -136,6 +137,58 @@ def check_db_radius_datetime(latitude,longitude,radius,firstdt,lastdt,db_object)
     # False.
     return False
 
+def get_max_gust(latitude,longitude, mgtime, timetpl, geotpl,db_object):
+    # Returns the maximum wind gust speed at a location during a time window.
+    # Accepts real latitude, longitude, and radius. 'time' is a TimeUtils object.
+    # The timetpl is a tuple object containing time windows in hours. For example (1,2) would be a
+    # one and two hour window. For now, no sorting, so order these increasing.
+    # The geotpl is a tuple object containing radius windows. For example, (4,8) would be 4 and 8 mile
+    # radii around the specified latitude and longitude. For now, no sorting, so order these increasing.
+    # get_max_gust returns an m X n array of tuples, where m is the number of time windows and n is the
+    # number of radius windows. The tuple returned for each is (time, weather station stid, maximum
+    # gust).
+    
+    twindows = len(timetpl)
+    gwindows = len(geotpl)
+
+    # Get data for maximum radius and time window
+
+    thi = TimeUtils(mgtime.datetime.datetime + timedelta(hours=timetpl[twindows-1]/2))
+    tlo = TimeUtils(mgtime.datetime.datetime - timedelta(hours=timetpl[twindows-1]/2))
+    wmobs = get_observations_by_radius_datetime(latitude,longitude,geotpl[gwindows-1],tlo,thi,db_object)
+
+    # Return data object: time bins X radius bins X [stid, distance, datetime, max gust, count]
+    womax = [[[None,None,None,0,0] for i in range(twindows)] for j in range(gwindows)]
+        
+    wtlst = []
+    i = 0
+
+    for tw in [-0.5,0.5]:
+        for tm in timetpl:
+            wtlst.append(mgtime.datetime.datetime + timedelta(hours=tm*tw))
+
+    wtlst.sort(key=datetime.datetime.isoformat)
+
+    for wo in wmobs['STATION']:
+        stid = wo['STID']
+        strad = wo['DISTANCE']
+        for wmevi in range(len(wo['OBSERVATIONS']['date_time'])):   # For each event in the time range
+            for gi in range(gwindows):                              # For each distance bin   
+                for ti in range(twindows):                          # For each time bin
+                    tevt = TimeUtils(wo['OBSERVATIONS']['date_time'][wmevi])   # Get event TimeUtils object
+                    tdelta = abs(wtlst[ti] - tevt.datetime.datetime).seconds/3600 # Get evt-time bin diff (hrs)
+                    if tdelta <= timetpl[ti]:                       # Is time difference in time bin?
+                        if strad <= geotpl[gi]:                     # Is dist within dist bin?
+                            if 'wind_gust_set_1' in wo['OBSERVATIONS']:  # Check station monitors gusts
+                                womax[ti][gi][4] += 1       # Count per time/radius bin
+                                if wo['OBSERVATIONS']['wind_gust_set_1'][wmevi] > womax[ti][gi][3]: # Largest
+                                    womax[ti][gi][0] = stid
+                                    womax[ti][gi][1] = strad
+                                    womax[ti][gi][2] = wo['OBSERVATIONS']['date_time'][wmevi]
+                                    womax[ti][gi][3] = wo['OBSERVATIONS']['wind_gust_set_1'][wmevi]
+                                    
+    return womax
+    
 class TimeUtils(object):
 
     # The TimeUtils class handles coversion between synoptic API (YYYYMMDDHHSS, UTC), synoptic data
@@ -294,7 +347,7 @@ class WeatherDB(object):
             except KeyError:
                 print("Unrecognized station data structure")           
         for st in starr:
-            sql = 'INSERT INTO station('
+            sql = 'INSERT OR IGNORE INTO station('
             dbtuple = ()
             qm = ''
             for sd in st.keys():
@@ -419,5 +472,9 @@ if __name__ == '__main__':
     bt1 = TimeUtils('201609251534')
     bt2 = TimeUtils('201609251934')
     butte_data = get_observations_by_radius_datetime(38.801857,-122.817551,8.0,bt1,bt2,mydb0)
+    bta = TimeUtils('201609241734')
+    ttpl = (1,2)
+    gtpl = (4,8)
+    butte_max = get_max_gust(38.801857,-122.817551,bta,ttpl,gtpl,mydb0)
 
     mydb0.close()
