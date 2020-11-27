@@ -3,6 +3,7 @@
 import weather_config
 import urllib.request as req
 import requests
+import os
 import os.path
 import json
 import sqlite3    #needs pip install
@@ -11,6 +12,9 @@ import datetime
 from datetime import timedelta
 import pytz
 import zulu       #Needs pip install
+import logging
+
+logging.basicConfig(level=weather_config.config['Default']['LOG_LEVEL'])
 
 api = weather_config.config['Default']['API_ROOT']
 token = weather_config.config['Default']['API_TOKEN']
@@ -169,24 +173,26 @@ def get_max_gust(latitude,longitude, mgtime, timetpl, geotpl,db_object):
 
     wtlst.sort(key=datetime.datetime.isoformat)
 
-    for wo in wmobs['STATION']:
-        stid = wo['STID']
-        strad = wo['DISTANCE']
-        for wmevi in range(len(wo['OBSERVATIONS']['date_time'])):   # For each event in the time range
-            for gi in range(gwindows):                              # For each distance bin   
-                for ti in range(twindows):                          # For each time bin
-                    tevt = TimeUtils(wo['OBSERVATIONS']['date_time'][wmevi])   # Get event TimeUtils object
-                    tdelta = abs(wtlst[ti] - tevt.datetime.datetime).seconds/3600 # Get evt-time bin diff (hrs)
-                    if tdelta <= timetpl[ti]:                       # Is time difference in time bin?
-                        if strad <= geotpl[gi]:                     # Is dist within dist bin?
-                            if 'wind_gust_set_1' in wo['OBSERVATIONS']:  # Check station monitors gusts
-                                womax[ti][gi][4] += 1       # Count per time/radius bin
-                                if wo['OBSERVATIONS']['wind_gust_set_1'][wmevi] > womax[ti][gi][3]: # Largest
-                                    womax[ti][gi][0] = stid
-                                    womax[ti][gi][1] = strad
-                                    womax[ti][gi][2] = wo['OBSERVATIONS']['date_time'][wmevi]
-                                    womax[ti][gi][3] = wo['OBSERVATIONS']['wind_gust_set_1'][wmevi]
-                                    
+    if wmobs['SUMMARY']['NUMBER_OF_OBJECTS'] > 0 : 
+        for wo in wmobs['STATION']:
+            stid = wo['STID']
+            strad = wo['DISTANCE']
+            for wmevi in range(len(wo['OBSERVATIONS']['date_time'])):   # For each event in the time range
+                for gi in range(gwindows):                              # For each distance bin   
+                    for ti in range(twindows):                          # For each time bin
+                        tevt = TimeUtils(wo['OBSERVATIONS']['date_time'][wmevi])   # Get event TimeUtils object
+                        tdelta = abs(wtlst[ti] - tevt.datetime.datetime).seconds/3600 # Get evt-time bin diff (hrs)
+                        if tdelta <= timetpl[ti]:                       # Is time difference in time bin?
+                            if strad <= geotpl[gi]:                     # Is dist within dist bin?
+                                if 'wind_gust_set_1' in wo['OBSERVATIONS'] and \
+                                   wo['OBSERVATIONS']['wind_gust_set_1'][wmevi] != None:  # Check station monitors gusts
+                                    womax[ti][gi][4] += 1       # Count per time/radius bin
+                                    if wo['OBSERVATIONS']['wind_gust_set_1'][wmevi] >= womax[ti][gi][3]: # Largest
+                                        womax[ti][gi][0] = stid
+                                        womax[ti][gi][1] = strad
+                                        womax[ti][gi][2] = wo['OBSERVATIONS']['date_time'][wmevi]
+                                        womax[ti][gi][3] = wo['OBSERVATIONS']['wind_gust_set_1'][wmevi]
+
     return womax
     
 class TimeUtils(object):
@@ -213,7 +219,7 @@ class TimeUtils(object):
                                            int(timeobj[8:10]),int(timeobj[10:12]))
                     self.datetime = zulu.Zulu.fromdatetime(dt)
                 except AttributeError:
-                    print("Invalid time string format for " + timeobj)
+                    logging.error("Invalid time string format for " + timeobj)
 
     def synop(self):
         # synoptic string is YYYYMMDDHHMM
@@ -236,11 +242,11 @@ class WeatherDB(object):
     def __init__(self,db_name):
         if not os.path.isfile(db_name):
             raise FileExistsError(db_name + " does not exist, use WeatherDB.create(db_name)")
-        print("Opening " + db_name)
+        logging.info("Opening " + db_name)
         try:
             connection = sqlite3.connect(db_name)
         except Error as e:
-            print(e)
+            logging.error(e)
         self.connection = connection
         self.cursor = connection.cursor()
         self.db_name = db_name
@@ -248,7 +254,7 @@ class WeatherDB(object):
     def create(db_name):
         if os.path.isfile(db_name):
             raise ValueError(db_name + " already exists. Use WeatherDB(db_name).")
-        print("Creating " + db_name)
+        logging.info("Creating " + db_name)
         db_file = open(db_name,'w')
         db_file.close()
         mydb = WeatherDB(db_name)
@@ -279,7 +285,7 @@ class WeatherDB(object):
         for v in radius_data['STATION'][0].keys():
             iv +=1
             sqltype = python_to_sql(radius_data['STATION'][0][v])
-            print("Station var: " + v + "   SQL Type: " + sqltype)
+            logging.debug("Station var: " + v + "   SQL Type: " + sqltype)
             comma = ', '
             if sqltype != 'REFERENCE' and v not in ['OBSERVATIONS']:
                 sql = sql + v.lower() + '  ' + sqltype
@@ -300,11 +306,11 @@ class WeatherDB(object):
                 sql = sql + comma
         
         sql = sql + ', UNIQUE(stid));'
-        print(sql)
+        logging.debug(sql)
         try:
             mydb.cursor.execute(sql)
         except Error as e:
-            print(e)
+            logging.error(e)
 
         # Create observations table
         mydb.cursor.execute('''SELECT count(name) FROM sqlite_master WHERE type='table' AND name='observations' ''')
@@ -316,17 +322,17 @@ class WeatherDB(object):
         for v in radius_data['STATION'][0]['OBSERVATIONS'].keys():
             iv +=1
             sqltype = python_to_sql(radius_data['STATION'][0]['OBSERVATIONS'][v][0])
-            print("Observation var: " + v + "   SQL Type: " + sqltype)
+            logging.debug("Observation var: " + v + "   SQL Type: " + sqltype)
             comma = ', '
             if sqltype != 'REFERENCE' and v != 'date_time':
                 sql = sql + v.lower() + '  ' + sqltype + comma
         
         sql = sql + ' volt_set_1 REAL, stid TEXT NOT NULL, PRIMARY KEY (stid, date_time), FOREIGN KEY (stid) REFERENCES station (stid) );'
-        print(sql)
+        logging.debug(sql)
         try:
             mydb.cursor.execute(sql)
         except Error as e:
-            print(e)
+            logging.error(e)
 
         mydb.connection.commit()
         return mydb
@@ -345,13 +351,13 @@ class WeatherDB(object):
                 sttest = data['SID']
                 starr = [data]         #Single station data
             except KeyError:
-                print("Unrecognized station data structure")           
+                logging.error("Unrecognized station data structure")           
         for st in starr:
             sql = 'INSERT OR IGNORE INTO station('
             dbtuple = ()
             qm = ''
             for sd in st.keys():
-                if sd not in ['OBSERVATIONS','PERIOD_OF_RECORD','SENSOR_VARIABLES']:
+                if sd not in ['OBSERVATIONS','QC','PERIOD_OF_RECORD','SENSOR_VARIABLES']:
                     var = sd.lower()
                     val = (st[sd],)
                     sql = sql + var + ','
@@ -406,7 +412,12 @@ class WeatherDB(object):
                 sttest = data['SID']
                 starr = [data]         #Single station data
             except KeyError:
-                print("Unrecognized station data structure")           
+                if data['SUMMARY']['NUMBER_OF_OBJECTS'] == 0 :
+                    logging.warn("No observations found. Skipping.")
+                    return
+                else:
+                    logging.error("Unrecognized station data structure")
+                    raise
         for station in data['STATION']:
             sql = 'INSERT OR IGNORE INTO observations ('
             stid = station['STID']
@@ -429,7 +440,7 @@ class WeatherDB(object):
                 obar.append(obtuple)
             qm.strip(',')
             sql = sql + 'stid) VALUES('+ qm + '?);'
-            print(sql)
+            logging.debug(sql)
             self.connection.executemany(sql,obar)
         self.connection.commit()
 
