@@ -6,6 +6,7 @@ import requests
 import os
 import os.path
 import json
+import random
 import sqlite3    #needs pip install
 import pickle
 import datetime
@@ -202,7 +203,12 @@ class TimeUtils(object):
 
     def __init__(self, timeobj):
 
-        self.datetime = None
+        if (isinstance(timeobj,TimeUtils)):
+            logging.warning("Time object is already a TimeUtils instance. Null operation.")
+            self.datetime = timeobj.datetime
+        else:
+            self.datetime = None
+
         if isinstance(timeobj,datetime.datetime):
             self.datetime = zulu.Zulu.fromdatetime(timeobj) 
         elif isinstance(timeobj,tuple):
@@ -221,12 +227,31 @@ class TimeUtils(object):
                 except AttributeError:
                     logging.error("Invalid time string format for " + timeobj)
 
+    def __sub__(self,tut):
+        # Subtraction operation returns datetime.timedelta object
+        try: 
+            dt = self.datetime.datetime - tut.datetime.datetime
+        except TypeError:
+            logging.error("Second operand must be TimeUtils object")
+        return dt
+
     def synop(self):
         # synoptic string is YYYYMMDDHHMM
         ztpl = self.datetime.utctimetuple()
         synopstr = str(ztpl[0]) + str(ztpl[1]).zfill(2) + str(ztpl[2]).zfill(2) + \
             str(ztpl[3]).zfill(2) + str(ztpl[4]).zfill(2)
         return synopstr
+
+    def randtime(start,end):
+        dt1 = TimeUtils(start)
+        dt2 = TimeUtils(end)
+        delta = dt2 - dt1
+        delsec = delta.days*24*60*60 + delta.seconds
+        randsec = random.randrange(delsec)
+        rt = dt1.datetime + datetime.timedelta(seconds=randsec)
+        rantm = TimeUtils(rt)
+        return rantm
+    randtime = staticmethod(randtime)
 
 class WeatherDB(object):
 
@@ -486,6 +511,10 @@ if __name__ == '__main__':
     bta = TimeUtils('201609241734')
     ttpl = (1,2)
     gtpl = (4,8)
-    butte_max = get_max_gust(38.801857,-122.817551,bta,ttpl,gtpl,mydb0)
+#    butte_max = get_max_gust(38.801857,-122.817551,bta,ttpl,gtpl,mydb0)
+    rt12a = TimeUtils.randtime(bt1,bt2)
+    rt12b = TimeUtils.randtime(bt1,bt2)
+    rt12c = TimeUtils.randtime(bt1,bt2)
+    rt1X = TimeUtils.randtime(bt1,'201809010000')
 
     mydb0.close()
