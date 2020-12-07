@@ -67,6 +67,28 @@ class TimeUtilsTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             tudtb = weather_utils.TimeUtils(dtb)
 
+    def test_subtraction(self):
+        dt1 = '2019-10-10T03:40:00Z'
+        tudt1 = weather_utils.TimeUtils(dt1)
+        dt2 = '2019-10-11T05:40:00Z'
+        tudt2 = weather_utils.TimeUtils(dt2)
+
+        dt12 = tudt2 - tudt1 
+        self.assertEqual(dt12.days,1)
+        self.assertEqual(dt12.seconds,7200)
+
+    def test_random(self):
+        in_window = True
+        dt1 = '2019-10-10T03:40:00Z'
+        tudt1 = weather_utils.TimeUtils(dt1)
+        dt2 = '2019-10-11T05:40:00Z'
+        tudt2 = weather_utils.TimeUtils(dt2)
+        for i in range(20):
+            rt = weather_utils.TimeUtils.randtime(dt1,dt2)
+            if rt.datetime < tudt1.datetime or rt.datetime > tudt2.datetime:
+                in_window = False
+        self.assertTrue(in_window)       
+            
     def test_synop(self):
 
         dt1 = '2019-10-10T03:40:00Z'
