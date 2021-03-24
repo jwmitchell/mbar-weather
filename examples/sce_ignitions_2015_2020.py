@@ -22,9 +22,9 @@ glst = gtpl_raw.split(',')
 gtpl = (int(glst[0]))
 
 try: 
-    pgeigndb = weather_utils.WeatherDB(weather_db)   
+    sceigndb = weather_utils.WeatherDB(weather_db)   
 except:
-    pgeigndb = weather_utils.WeatherDB.create(weather_db)
+    sceigndb = weather_utils.WeatherDB.create(weather_db)
 
 logging.info('Opening workbook ' + xl_data)
 wbk = load_workbook(filename=xl_data)
@@ -67,26 +67,11 @@ for irow in range(frow,lrow+1):
     is_xl_format = False
     tmxl = 0
 
-    try: 
-        if type(tmxld) is str:
-            if '/' in tmxld:
-                dd = xcelld.split('/')
-                tt = xcellt.split(':')
-                tmpydt = datetime.datetime(int(dd[0]),int(dd[1]),int(dd[2]),\
-                                           int(tt[0]),int(tt[1]))
-        if isinstance(tmxld,datetime):
-            tmpydt = tmxld
-        elif float(tmxld) > 40000.00 and float(tmxld) < 50000.00:
-            is_xl_format = True
-            if not float(tmxld).is_integer():
-                tmxl = float(tmxld) 
-            elif float(tmxlt) > 40000.0 and float(tmxlt) < 50000.0:
-                tmxl = float(tmxlt)
-            elif float(tmxlt) < 1.0:
-                tmxl = float(tmxld) + float(tmxlt)
-            else:
-                raise TypeError("Unrecognized time value pair B:" + str(tmxld) + " C:" + str(tmxlt))
-            tmpydt = datetime(*xlrd.xldate_as_tuple(tmxl,0))
+    try:
+        # For SCE data, dates are datetimes with incorrect time of 0:00
+
+        tmpydt = tmxld.replace(hour=tmxlt.hour,minute=tmxlt.minute)
+        
     except TypeError:
         logging.warning("Exiting on error. Saving workbook " + xl_data)
         wbk.save(xl_data)
@@ -106,7 +91,7 @@ for irow in range(frow,lrow+1):
     gtpl = (gtpl,) if isinstance(gtpl,int) else gtpl
     
     try:
-        max_gusts = weather_utils.get_max_gust(lat,lon,zigtime,ttpl,gtpl,pgeigndb)
+        max_gusts = weather_utils.get_max_gust(lat,lon,zigtime,ttpl,gtpl,sceigndb)
     except:
         logging.warning("Exiting on error. Saving workbook " + xl_data)
         wbk.save(xl_data)
@@ -120,7 +105,6 @@ for irow in range(frow,lrow+1):
             for val in ig:
                 sht_wind.cell(row=irow,column=icell).value = val
                 icell += 1
-    wbk.save(xl_data)    
 
 logging.info("Complete. Saving workbook " + xl_data)
 wbk.save(xl_data)
