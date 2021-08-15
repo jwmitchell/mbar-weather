@@ -7,44 +7,50 @@ import xlrd  # pip install
 import sys
 
 parse = argparse.ArgumentParser()
-parse.add_argument('-u','--utility',choices=['PGE','SCE','SDGE'],help='utility=PGE,SCE,SDGE')
+parse.add_argument('-u','--utility',choices=['PGE','SCE','SDGE'],required=True,help='utility=PGE,SCE,SDGE')
 parse.add_argument('-f','--file',help='file=configuration file')
 program_args=parse.parse_args()
 import weather_config
 
 if program_args.file is not None:
     weather_config.init(program_args.file)
-else:
-    weather_config.init(weather_config.DEFAULT_CONFIG)
 
-    
-print (weather_config.config['SCE']['XL_DATA_FILE'])
-# import weather_utils
+import weather_utils
 
-# logging.basicConfig(level=weather_config.config['Default']['LOG_LEVEL'])
+logging.basicConfig(level=weather_config.config['Default']['LOG_LEVEL'])
 
-# xl_data = weather_config.config['PGE']['XL_DATA_FILE']
-# weather_db = weather_config.config['PGE']['WEATHER_DB']
-# xl_input_sheet = weather_config.config['PGE']['XL_INPUT_SHEET']
-# xl_output_sheet = weather_config.config['PGE']['XL_OUTPUT_SHEET']
-# ttpl_raw = weather_config.config['PGE']['TIME_WINDOWS']
-# gtpl_raw = weather_config.config['PGE']['DISTANCE_WINDOWS']
 
-# tlst = ttpl_raw.split(',')
-# ttpl = (int(tlst[0]),int(tlst[1]))
-# glst = gtpl_raw.split(',')
-# gtpl = (int(glst[0]),int(glst[1]))
+xl_data = weather_config.config[program_args.utility]['XL_DATA_FILE']
+weather_db = weather_config.config[program_args.utility]['WEATHER_DB']
+xl_input_sheet = weather_config.config[program_args.utility]['XL_INPUT_SHEET']
+xl_output_sheet = weather_config.config[program_args.utility]['XL_OUTPUT_SHEET']
+xl_date_col = weather_config.config[program_args.utility]['XL_DATE_COLUMN']
+xl_time_col = weather_config.config[program_args.utility]['XL_TIME_COLUMN']
+xl_lat_col = weather_config.config[program_args.utility]['XL_LAT_COLUMN']
+xl_long_col = weather_config.config[program_args.utility]['XL_LONG_COLUMN']
+ttpl_raw = weather_config.config[program_args.utility]['TIME_WINDOWS']
+gtpl_raw = weather_config.config[program_args.utility]['DISTANCE_WINDOWS']
 
-# try: 
-#     pgeigndb = weather_utils.WeatherDB(weather_db)   
-# except:
-#     pgeigndb = weather_utils.WeatherDB.create(weather_db)
+tlst = ttpl_raw.split(',')
+ttpl = (int(tlst[0]),)
+ii = 0
+for itt in tlst:
+    if ii>0:
+        ttpl = ttpl + (int(tlst[ii]),)
+    ii+=1
+glst = gtpl_raw.split(',')
+gtpl = (int(glst[0]),)
 
-# logging.info('Opening workbook ' + xl_data)
-# wbk = load_workbook(filename=xl_data)
+try: 
+     weatherdb = weather_utils.WeatherDB(weather_db)   
+except:
+     weatherdb = weather_utils.WeatherDB.create(weather_db)
 
-# sht_all = wbk[xl_input_sheet]
-# sht_wind = wbk[xl_output_sheet]
+#logging.info('Opening workbook ' + xl_data)
+#wbk = load_workbook(filename=xl_data)
+
+#sht_all = wbk[xl_input_sheet]
+#sht_wind = wbk[xl_output_sheet]
 
 # frow = int(weather_config.config['PGE']['FIRST_ROW'])
 # lrow = int(weather_config.config['PGE']['LAST_ROW'])
@@ -112,7 +118,7 @@ print (weather_config.config['SCE']['XL_DATA_FILE'])
 #     # Output is m x n list of  [station_id,time,distance,maximum gust,count]
     
 #     try:
-#         max_gusts = weather_utils.get_max_gust(lat,lon,zigtime,ttpl,gtpl,pgeigndb)
+#         max_gusts = weather_utils.get_max_gust(lat,lon,zigtime,ttpl,gtpl,weatherdb)
 #     except:
 #         logging.warning("Exiting on error. Saving workbook " + xl_data)
 #         wbk.save(xl_data)
