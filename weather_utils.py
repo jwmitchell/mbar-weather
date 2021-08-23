@@ -163,7 +163,7 @@ def get_max_gust(latitude,longitude, mgtime, timetpl, geotpl,db_object):
     wmobs = get_observations_by_radius_datetime(latitude,longitude,geotpl[gwindows-1],tlo,thi,db_object)
 
     # Return data object: time bins X radius bins X [stid, distance, datetime, max gust, count]
-    womax = [[[None,None,None,0,0] for i in range(twindows)] for j in range(gwindows)]
+    womax = [[[None,None,None,0,0] for i in range(gwindows)] for j in range(twindows)]
         
     wtlst = []
     i = 0
