@@ -129,20 +129,20 @@ for irow in range(frow,lrow+1):
     
     try:
         max_gusts = weather_utils.get_max_gust(lat,lon,zmidtime,ttpl,gtpl,weatherdb)
-        print("Got here")
     except:
         logging.warning("Exiting on error. Saving workbook " + xl_data)
-#        wbk.save(xl_data)
+        wbk.save(xl_data)
         raise
     
-#     # Write output to cells
+    # Write output to cells
     
-#     icell = int(weather_config.config['PGE']['FREE_CELL'])
-#     for it in max_gusts:
-#         for ig in it:
-#             for val in ig:
-#                 sht_wind[srow][icell].value = val
-#                 icell += 1
+    icell = int(weather_config.config['SDGE']['FREE_CELL'])
+    for it in max_gusts:
+        for ig in it:
+            for val in ig:
+#                sht_wind[irow][icell].value = val
+                sht_wind.cell(row=irow,column=icell,value=val)
+                icell += 1
     
-# logging.info("Complete. Saving workbook " + xl_data)
-# wbk.save(xl_data)
+logging.info("Complete. Saving workbook " + xl_data)
+wbk.save(xl_data)
