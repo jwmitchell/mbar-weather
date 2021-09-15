@@ -1,3 +1,24 @@
+#### Copyright 2021, M-bar Technologies and Consulting, LLC #### 
+#### Distributed under the Gnu General Public Licence, v3   ####
+#
+# This program is designed to analyze utility ignition data to determine the
+# maximum wind speed in the vicinity of the ignition.
+#
+# Input data is expected to be an Excel spreadsheet, with columns containing
+# date, time, latitude and longitude of the ignition. Details regarding specific
+# configurations for the run are provided in an .ini file, which is specified
+# as an argument, as is the utility identifier (SDGE, PGE, SCE).
+#
+# The program uses the weather_config and weather_utils libraries to obtain
+# weather station data. Different radii and time windows can be specified as
+# python tuples in the configuration files. The program will modify the Excel
+# file and add a duplicate spreadsheet that additionaly shows the weather
+# station data for the maximum speed within a given radius and time, the
+# distance to the weather station, the time of peak wind, and how many
+# data elements were found within the specified range.
+#
+
+
 import argparse
 import datetime
 import sys

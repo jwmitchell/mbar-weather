@@ -1,3 +1,11 @@
+#### Copyright 2020, M-bar Technologies and Consulting, LLC #### 
+#### Distributed under the Gnu General Public Licence, v3   ####
+#
+# This program analyzes circuit damage data from utility power shutoff events
+# and finds the maximum wind gust speed within specified time and distance
+# windows.
+#
+
 import argparse
 import datetime
 from datetime import timedelta
