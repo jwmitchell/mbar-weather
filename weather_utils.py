@@ -2,6 +2,7 @@
 #
 import weather_config
 import urllib.request as req
+from requests.exceptions import HTTPError
 import requests
 import os
 import os.path
@@ -54,7 +55,7 @@ def python_to_sql(obj):
 def get_example_radius_dataset():
     radius = (38.09,-122.65,3)
     st_radius = ",".join(map(str,radius))
-    api_arguments = {"token":token,"start":"201910092300","end":"201910100400","radius":st_radius,"units":"metric"}
+    api_arguments = {"token":token,"start":"202210092300","end":"202210100400","radius":st_radius,"units":"metric"}
     api_request_url = get_base_api_request_url("timeseries")
     req = requests.get(api_request_url, params=api_arguments)
     data = req.json()
@@ -65,7 +66,10 @@ def get_station_by_stid(stid,db_object):
 # dictionary. If it is not found, get it from the Synoptic API.
 # To eliminate nesting differences, fetch the final station data from the database once
 # it has been entered.
-    station = db_object.get_station(stid)
+    if (db_object != None):
+        station = db_object.get_station(stid)
+    else:
+        station = {}
     rc = 0
     if station == {}:
         # Call API to find station
@@ -77,8 +81,9 @@ def get_station_by_stid(stid,db_object):
         if rc == 2:
             estr = "stid " + stid + " is not a valid station"
             raise ValueError(estr)
-        db_object.add_station(station)
-        station = db_object.get_station(stid)    # Ensures same format for existing & new
+        if (db_object != None):
+            db_object.add_station(station)
+            station = db_object.get_station(stid)    # Ensures same format for existing & new
     return(station)
 
 def get_observations_by_stid_datetime(stid,firstdt,lastdt,db_object):
@@ -87,21 +92,22 @@ def get_observations_by_stid_datetime(stid,firstdt,lastdt,db_object):
     # Checks whether the database contains a complete record. If not, re-fills from time range.
 
     get_station_by_stid(stid,db_object)
-    obs = db_object.get_observations(stid,firstdt,lastdt)
-    firzdt = TimeUtils(firstdt)
-    laszdt = TimeUtils(lastdt)
-    needsapi = False
-    if obs != []:
-        nobs = len(obs)
-        if nobs > 1:
-            secobtime = obs[1]['DATE_TIME']
-            secztime = TimeUtils(secobtime)
-            tdelta = secztime.datetime - firzdt.datetime
-            trange = laszdt.datetime - firzdt.datetime 
-            ticks = int(trange.seconds / tdelta.seconds)
-            difobsticks = abs(nobs-ticks)
-            if difobsticks > 1:
-                needsapi = True
+    if db_object!=None:
+        obs = db_object.get_observations(stid,firstdt,lastdt)
+        firzdt = TimeUtils(firstdt)
+        laszdt = TimeUtils(lastdt)
+        needsapi = False
+        if obs != []:
+            nobs = len(obs)
+            if nobs > 1:
+                secobtime = obs[1]['DATE_TIME']
+                secztime = TimeUtils(secobtime)
+                tdelta = secztime.datetime - firzdt.datetime
+                trange = laszdt.datetime - firzdt.datetime 
+                ticks = int(trange.seconds / tdelta.seconds)
+                difobsticks = abs(nobs-ticks)
+                if difobsticks > 1:
+                    needsapi = True
     else:
         needsapi = True
         
@@ -112,8 +118,9 @@ def get_observations_by_stid_datetime(stid,firstdt,lastdt,db_object):
         api_request_url = get_base_api_request_url("timeseries")
         req = requests.get(api_request_url, params=api_arguments)
         data = req.json()
-        db_object.add_observations(data)
-        obs = db_object.get_observations(stid,firstdt,lastdt)
+        if db_object != Null :
+            db_object.add_observations(data)
+            obs = db_object.get_observations(stid,firstdt,lastdt)
 
     return(obs)
 
@@ -324,6 +331,11 @@ class WeatherDB(object):
                     por_end =  radius_data['STATION'][0]['PERIOD_OF_RECORD']['end']
                     sql = sql + 'period_of_record_start TEXT  NOT NULL, '
                     sql = sql + 'period_of_record_stop TEXT  NOT NULL'
+                elif v == 'UNITS':
+                    units_elevation = radius_data['STATION'][0]['UNITS']['elevation']
+                    units_position = radius_data['STATION'][0]['UNITS']['position']
+                    sql = sql + 'units_position TEXT  NOT NULL,'
+                    sql = sql + 'units_elevation TEXT  NOT NULL'
                 else:
                     raise ValueError("Unknown station reference variable " + v)     
 
@@ -382,7 +394,7 @@ class WeatherDB(object):
             dbtuple = ()
             qm = ''
             for sd in st.keys():
-                if sd not in ['OBSERVATIONS','QC','PERIOD_OF_RECORD','SENSOR_VARIABLES']:
+                if sd not in ['OBSERVATIONS','QC','PERIOD_OF_RECORD','UNITS','SENSOR_VARIABLES']:
                     var = sd.lower()
                     val = (st[sd],)
                     sql = sql + var + ','
@@ -393,6 +405,12 @@ class WeatherDB(object):
                     por_end = st[sd]['end']
                     sql = sql + 'period_of_record_start, period_of_record_stop,'
                     dbtuple = dbtuple + (por_start,por_end)
+                    qm = qm + '?,?,'
+                elif sd == 'UNITS':
+                    units_position = st[sd]['position']
+                    units_elevation = st[sd]['elevation']
+                    sql = sql + 'units_position, units_elevation,'
+                    dbtuple = dbtuple + (units_position,units_elevation)
                     qm = qm + '?,?,'
                 elif sd == 'SENSOR_VARIABLES':
                     var = sd.lower()                
@@ -430,6 +448,11 @@ class WeatherDB(object):
         #Determine nesting of data structure containing station data and pack into array
         if data == None or data == {}:
             raise ValueError('No observation data has been provided')
+        try:
+            if data['SUMMARY']['HTTP_STATUS_CODE'] > 299:
+                raise HTTPError(data['SUMMARY']['RESPONSE_MESSAGE'])
+        except KeyError:
+            pass
         try:
             starr = data['STATION']    #Station array
         except KeyError:

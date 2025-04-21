@@ -1,10 +1,14 @@
 ###
 ##  Test suite for weather_utils.py
 
+import weather_config
+weather_config.init('weather.ini')
 import weather_utils
 import unittest
 import os
 import sqlite3
+
+
 
 class BaseAPIRequestTestCase(unittest.TestCase):
 
