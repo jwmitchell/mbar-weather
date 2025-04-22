@@ -55,8 +55,6 @@ try:
 except:
     cfigndb = weather_utils.WeatherDB.create(weather_db)
 
-# cfigndb = None
-
 logging.info('Opening workbook ' + xl_data)
 wbk = load_workbook(filename=xl_data)
 
@@ -70,7 +68,11 @@ except KeyError:
     
 frow = int(weather_config.config['PGE']['FIRST_ROW'])
 lrow = int(weather_config.config['PGE']['LAST_ROW'])
+
 #weather_station_cell = weather_config.config['PGE']['WS'] No weather station
+# Copy header row
+for icol in range(len(sht_all[1])):
+    sht_wind.cell(row=1,column=icol+1).value = sht_all[1][icol].value
 
 for irow in range(frow,lrow+1):
     
@@ -79,7 +81,7 @@ for irow in range(frow,lrow+1):
     srow = str(irow)
     logging.info("Processing line " + srow)
     for icol in range(len(sht_all[srow])):
-        sht_wind.cell(row=irow,column=icol+1).value = sht_all[irow][icol].value
+        sht_wind.cell(row=irow-frow+2,column=icol+1).value = sht_all[irow][icol].value
 
     # Convert times to UTC for synoptic run. PG&E has multiple date/time formats
     # in their data set:
@@ -101,7 +103,7 @@ for irow in range(frow,lrow+1):
 
     try:
 
-        tmpydt = sht_wind[xl_datetime_column+srow].value
+        tmpydt = sht_wind[xl_datetime_column+str(irow-frow+2)].value
         
     except TypeError:
         logging.warning("Exiting on error. Saving workbook " + xl_data)
@@ -112,14 +114,16 @@ for irow in range(frow,lrow+1):
     tmutc = tmlocal.astimezone(pytz.utc)
 
     zigtime = weather_utils.TimeUtils(tmutc)
-    lat = sht_wind[xl_latitude_column + srow].value
-    lon = sht_wind[xl_longitude_column + srow].value
+    lat = sht_wind[xl_latitude_column + str(irow-frow+2)].value
+    lon = sht_wind[xl_longitude_column + str(irow-frow+2)].value
 
     # Get list of max wind data based on time and space windows
     # Output is m x n list of  [station_id,time,distance,maximum gust,count]
 
     ttpl = (ttpl,) if isinstance(ttpl,int) else ttpl
     gtpl = (gtpl,) if isinstance(gtpl,int) else gtpl
+
+    logging.debug("Lat/Lon: " + str(lat) + "," + str(lon) + "  Time: " + str(tmpydt))
     
     try:
         #ws_values = weather_utils.get_observations_by_stid_datetime(stid,firstdt,lastdt,db_object)
@@ -132,10 +136,12 @@ for irow in range(frow,lrow+1):
     # Write output to cells
     
     icell = int(weather_config.config['PGE']['FREE_CELL'])
+    if len(max_gusts) == 0:
+        logging.warning("WARNING: No max gusts found")
     for it in max_gusts:
         for ig in it:
             for val in ig:
-                sht_wind.cell(row=irow,column=icell).value = val
+                sht_wind.cell(row=irow-frow+2,column=icell).value = val
                 icell += 1
 
 logging.info("Complete. Saving workbook " + xl_data)
