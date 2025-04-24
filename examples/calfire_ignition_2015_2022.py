@@ -48,7 +48,7 @@ tlst = ttpl_raw.split(',')
 # ttpl = (int(tlst[0]),int(tlst[1]))
 ttpl = (int(tlst[0]))
 glst = gtpl_raw.split(',')
-gtpl = (int(glst[0]))
+gtpl = (int(glst[0]),int(glst[1]))
 
 try: 
     cfigndb = weather_utils.WeatherDB(weather_db)   
