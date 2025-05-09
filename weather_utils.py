@@ -149,7 +149,7 @@ def check_db_radius_datetime(latitude,longitude,radius,firstdt,lastdt,db_object)
     # False.
     return False
 
-def get_max_gust(latitude,longitude, mgtime, timetpl, geotpl,db_object):
+def get_max_gust(latitude,longitude, mgtime, timetpl, timeoffset, geotpl, db_object):
     # Returns the maximum wind gust speed at a location during a time window.
     # Accepts real latitude, longitude, and radius. 'time' is a TimeUtils object.
     # The timetpl is a tuple object containing time windows in hours. For example (1,2) would be a
@@ -157,20 +157,32 @@ def get_max_gust(latitude,longitude, mgtime, timetpl, geotpl,db_object):
     # The geotpl is a tuple object containing radius windows. For example, (4,8) would be 4 and 8 mile
     # radii around the specified latitude and longitude. For now, no sorting, so order these increasing.
     # get_max_gust returns an m X n array of tuples, where m is the number of time windows and n is the
-    # number of radius windows. The tuple returned for each is (time, weather station stid, maximum
-    # gust).
+    # number of radius windows. The tuple returned for each is (time, weather station stid,
+    # weather station mesonet,  maximum gust, count of readings).
     
     twindows = len(timetpl)
     gwindows = len(geotpl)
 
-    # Get data for maximum radius and time window
+    # Get data for maximum radius and time window. Uses time offset to determine where measurements start
 
-    thi = TimeUtils(mgtime.datetime.datetime + timedelta(hours=timetpl[twindows-1]/2))
-    tlo = TimeUtils(mgtime.datetime.datetime - timedelta(hours=timetpl[twindows-1]/2))
+    if timeoffset == 0: 
+        thi = TimeUtils(mgtime.datetime.datetime + timedelta(hours=timetpl[twindows-1]/2))
+        tlo = TimeUtils(mgtime.datetime.datetime - timedelta(hours=timetpl[twindows-1]/2))
+    elif timeoffset == -1:
+        thi = TimeUtils(mgtime.datetime.datetime)
+        tlo = TimeUtils(mgtime.datetime.datetime) - timedelta(hours=timetpl[twindows-1])
+    elif timeoffset == 1:
+        thi = TimeUtils(mgtime.datetime.datetime) + timedelta(hours=timetpl[twindows-1])
+        tlo = TimeUtils(mgtime.datetime.datetime)
+    else:   #Backwards compatibility
+        thi = TimeUtils(mgtime.datetime.datetime + timedelta(hours=timetpl[twindows-1]/2))
+        tlo = TimeUtils(mgtime.datetime.datetime - timedelta(hours=timetpl[twindows-1]/2))
+
+        
     wmobs = get_observations_by_radius_datetime(latitude,longitude,geotpl[gwindows-1],tlo,thi,db_object)
 
-    # Return data object: time bins X radius bins X [stid, distance, datetime, max gust, count]
-    womax = [[[None,None,None,0,0] for i in range(gwindows)] for j in range(twindows)]
+    # Return data object: time bins X radius bins X [stid, mnet, distance, datetime, max gust, count]
+    womax = [[[None,None,None,None,0,0] for i in range(gwindows)] for j in range(twindows)]
         
     wtlst = []
     i = 0
@@ -184,6 +196,7 @@ def get_max_gust(latitude,longitude, mgtime, timetpl, geotpl,db_object):
     if wmobs['SUMMARY']['NUMBER_OF_OBJECTS'] > 0 : 
         for wo in wmobs['STATION']:
             stid = wo['STID']
+            stnet = wo['MNET_ID']
             strad = wo['DISTANCE']
             for wmevi in range(len(wo['OBSERVATIONS']['date_time'])):   # For each event in the time range
                 for gi in range(gwindows):                              # For each distance bin   
@@ -194,12 +207,13 @@ def get_max_gust(latitude,longitude, mgtime, timetpl, geotpl,db_object):
                             if strad <= geotpl[gi]:                     # Is dist within dist bin?
                                 if 'wind_gust_set_1' in wo['OBSERVATIONS'] and \
                                    wo['OBSERVATIONS']['wind_gust_set_1'][wmevi] != None:  # Check station monitors gusts
-                                    womax[ti][gi][4] += 1       # Count per time/radius bin
-                                    if wo['OBSERVATIONS']['wind_gust_set_1'][wmevi] >= womax[ti][gi][3]: # Largest
+                                    womax[ti][gi][5] += 1       # Count per time/radius bin
+                                    if wo['OBSERVATIONS']['wind_gust_set_1'][wmevi] >= womax[ti][gi][4]: # Largest
                                         womax[ti][gi][0] = stid
-                                        womax[ti][gi][1] = strad
-                                        womax[ti][gi][2] = wo['OBSERVATIONS']['date_time'][wmevi]
-                                        womax[ti][gi][3] = wo['OBSERVATIONS']['wind_gust_set_1'][wmevi]
+                                        womax[ti][gi][1] = stnet
+                                        womax[ti][gi][2] = strad
+                                        womax[ti][gi][3] = wo['OBSERVATIONS']['date_time'][wmevi]
+                                        womax[ti][gi][4] = wo['OBSERVATIONS']['wind_gust_set_1'][wmevi]
 
     return womax
     
