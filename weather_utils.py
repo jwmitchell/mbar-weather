@@ -59,6 +59,11 @@ def get_example_radius_dataset():
     api_request_url = get_base_api_request_url("timeseries")
     req = requests.get(api_request_url, params=api_arguments)
     data = req.json()
+    try:
+        if data['SUMMARY']['HTTP_STATUS_CODE'] > 299:
+            raise HTTPError(data['SUMMARY']['RESPONSE_MESSAGE'])
+    except KeyError:
+        pass
     return(data)
 
 def get_station_by_stid(stid,db_object):
